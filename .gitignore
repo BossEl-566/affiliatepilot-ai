@@ -1,0 +1,32 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# env files
+.env
+.env.local
+.env.*.local
+.env.example
+
+# builds
+.next
+dist
+build
+.turbo
+
+# logs
+logs
+*.log
+
+# uploads
+uploads/*
+!uploads/.gitkeep
+
+# OS
+.DS_Store
+Thumbs.db
+
+# editor
+.vscode/*
+!.vscode/extensions.json
+.idea
