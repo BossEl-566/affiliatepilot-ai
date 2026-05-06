@@ -800,6 +800,14 @@ export default function ProductDetailsPage() {
                             ))}
                           </div>
                         ) : null}
+                        <div className="mt-4">
+  <Link
+    href={`/posts/${post._id}`}
+    className="inline-flex rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+  >
+    Open editor
+  </Link>
+</div>
 
                         {post.riskNotes?.length ? (
                           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
