@@ -51,6 +51,36 @@ type ProductFormState = {
   status: ProductStatus;
 };
 
+type GeneratedPost = {
+  _id: string;
+  affiliateProductId: string;
+  platform:
+    | "instagram"
+    | "facebook"
+    | "tiktok"
+    | "youtube"
+    | "pinterest"
+    | "telegram"
+    | "x"
+    | "website";
+  format:
+    | "short_video"
+    | "image_post"
+    | "carousel"
+    | "text_post"
+    | "thread"
+    | "pin";
+  title?: string;
+  hook?: string;
+  caption?: string;
+  script?: string;
+  hashtags?: string[];
+  callToAction?: string;
+  status: "draft" | "approved" | "scheduled" | "published" | "failed";
+  riskNotes?: string[];
+  createdAt?: string;
+};
+
 function createFormState(product: AffiliateProduct): ProductFormState {
   return {
     name: product.name || "",
@@ -112,17 +142,42 @@ function BulletList({
   );
 }
 
+function formatPlatformName(platform: string) {
+  const labels: Record<string, string> = {
+    instagram: "Instagram",
+    facebook: "Facebook",
+    tiktok: "TikTok",
+    youtube: "YouTube Shorts",
+    pinterest: "Pinterest",
+    telegram: "Telegram",
+    x: "X",
+    website: "Website",
+  };
+
+  return labels[platform] || platform;
+}
+
+function formatPostFormat(format: string) {
+  return format
+    .split("_")
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
 export default function ProductDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
   const [product, setProduct] = useState<AffiliateProduct | null>(null);
   const [form, setForm] = useState<ProductFormState | null>(null);
+  const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isLoadingPosts, setIsLoadingPosts] = useState(false);
+  const [isGeneratingCampaign, setIsGeneratingCampaign] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -155,8 +210,33 @@ export default function ProductDetailsPage() {
     }
   }
 
+  async function fetchGeneratedPosts() {
+    try {
+      setIsLoadingPosts(true);
+
+      const response = await fetch(`/api/posts?productId=${params.id}`, {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to fetch generated posts");
+      }
+
+      setGeneratedPosts(data.posts);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
+    } finally {
+      setIsLoadingPosts(false);
+    }
+  }
+
   useEffect(() => {
     fetchProduct();
+    fetchGeneratedPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
@@ -264,6 +344,36 @@ export default function ProductDetailsPage() {
     }
   }
 
+  async function handleGenerateCampaign() {
+    try {
+      setIsGeneratingCampaign(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const response = await fetch(
+        `/api/products/${params.id}/generate-campaign`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to generate campaign");
+      }
+
+      setSuccessMessage("Campaign draft posts generated successfully.");
+      await fetchGeneratedPosts();
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
+    } finally {
+      setIsGeneratingCampaign(false);
+    }
+  }
+
   async function handleDelete() {
     const confirmed = window.confirm(
       "Are you sure you want to delete this product? This cannot be undone."
@@ -337,7 +447,7 @@ export default function ProductDetailsPage() {
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
               Edit product details, prepare campaign data, generate AI analysis,
-              and later create marketing assets for this product.
+              and create platform-specific marketing drafts.
             </p>
           </div>
 
@@ -581,6 +691,134 @@ export default function ProductDetailsPage() {
                 </div>
               </div>
 
+              <div className="rounded-3xl border border-white/10 bg-slate-900 p-5">
+                <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold">
+                      Generated campaign drafts
+                    </h2>
+                    <p className="mt-1 text-sm text-slate-400">
+                      Draft posts created for each platform. Later, we will add
+                      editing, approval, scheduling, and publishing.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={fetchGeneratedPosts}
+                    disabled={isLoadingPosts}
+                    className="rounded-2xl border border-white/10 px-4 py-2 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {isLoadingPosts ? "Refreshing..." : "Refresh posts"}
+                  </button>
+                </div>
+
+                {isLoadingPosts ? (
+                  <div className="mt-5 rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-slate-300">
+                    Loading generated posts...
+                  </div>
+                ) : generatedPosts.length === 0 ? (
+                  <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center">
+                    <p className="font-semibold">No campaign drafts yet</p>
+                    <p className="mt-2 text-sm text-slate-400">
+                      Click “Generate campaign” to create platform-specific draft
+                      posts.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="mt-5 grid gap-4">
+                    {generatedPosts.map((post) => (
+                      <article
+                        key={post._id}
+                        className="rounded-2xl border border-white/10 bg-black/20 p-4"
+                      >
+                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                          <div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-bold text-cyan-300">
+                                {formatPlatformName(post.platform)}
+                              </span>
+
+                              <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-medium text-slate-300">
+                                {formatPostFormat(post.format)}
+                              </span>
+
+                              <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-medium capitalize text-amber-300">
+                                {post.status}
+                              </span>
+                            </div>
+
+                            <h3 className="mt-3 text-base font-bold text-white">
+                              {post.title || "Untitled draft"}
+                            </h3>
+
+                            {post.hook && (
+                              <p className="mt-2 text-sm font-medium text-cyan-200">
+                                Hook: {post.hook}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {post.caption && (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-4">
+                            <p className="whitespace-pre-line text-sm leading-6 text-slate-300">
+                              {post.caption}
+                            </p>
+                          </div>
+                        )}
+
+                        {post.script && (
+                          <div className="mt-4 rounded-2xl border border-white/10 bg-slate-950 p-4">
+                            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-slate-500">
+                              Script
+                            </p>
+                            <p className="whitespace-pre-line text-sm leading-6 text-slate-300">
+                              {post.script}
+                            </p>
+                          </div>
+                        )}
+
+                        {post.callToAction && (
+                          <p className="mt-4 text-sm text-slate-300">
+                            <span className="font-semibold text-slate-100">
+                              CTA:
+                            </span>{" "}
+                            {post.callToAction}
+                          </p>
+                        )}
+
+                        {post.hashtags?.length ? (
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            {post.hashtags.map((tag) => (
+                              <span
+                                key={tag}
+                                className="rounded-full bg-white/10 px-3 py-1 text-xs text-slate-300"
+                              >
+                                #{tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        {post.riskNotes?.length ? (
+                          <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+                            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-amber-200">
+                              Risk notes
+                            </p>
+                            <ul className="list-inside list-disc space-y-1 text-sm text-amber-100">
+                              {post.riskNotes.map((note) => (
+                                <li key={note}>{note}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ) : null}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-200">
                   Status
@@ -639,8 +877,14 @@ export default function ProductDetailsPage() {
                     : "Generate AI analysis"}
                 </button>
 
-                <button className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300">
-                  Generate campaign
+                <button
+                  onClick={handleGenerateCampaign}
+                  disabled={isGeneratingCampaign}
+                  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isGeneratingCampaign
+                    ? "Generating campaign..."
+                    : "Generate campaign"}
                 </button>
 
                 <button className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300">
