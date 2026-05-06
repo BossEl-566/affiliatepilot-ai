@@ -24,6 +24,10 @@ type AffiliateProduct = {
   objections?: string[];
   allowedChannels?: string[];
   bannedClaims?: string[];
+  contentAngles?: string[];
+  recommendedPlatforms?: string[];
+  analysisNotes?: string;
+  lastAnalyzedAt?: string;
   trustScore?: number;
   riskScore?: number;
   status: ProductStatus;
@@ -47,6 +51,67 @@ type ProductFormState = {
   status: ProductStatus;
 };
 
+function createFormState(product: AffiliateProduct): ProductFormState {
+  return {
+    name: product.name || "",
+    platformName: product.platformName || "",
+    affiliateUrl: product.affiliateUrl || "",
+    productUrl: product.productUrl || "",
+    category: product.category || "",
+    targetAudience: product.targetAudience || "",
+    currency: product.currency || "GHS",
+    price: String(product.price || ""),
+    commissionType: product.commissionType || "unknown",
+    commissionValue: String(product.commissionValue || ""),
+    productSummary: product.productSummary || "",
+    buyerPersona: product.buyerPersona || "",
+    status: product.status || "draft",
+  };
+}
+
+function TagList({ items }: { items?: string[] }) {
+  if (!items?.length) {
+    return <p className="mt-2 text-sm text-slate-400">No data yet.</p>;
+  }
+
+  return (
+    <div className="mt-2 flex flex-wrap gap-2">
+      {items.map((item) => (
+        <span
+          key={item}
+          className="rounded-full bg-cyan-400/10 px-3 py-1 text-xs font-medium text-cyan-300"
+        >
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function BulletList({
+  items,
+  emptyMessage,
+  limit,
+}: {
+  items?: string[];
+  emptyMessage: string;
+  limit?: number;
+}) {
+  const list = limit ? items?.slice(0, limit) : items;
+
+  if (!list?.length) {
+    return <p className="mt-3 text-sm text-slate-400">{emptyMessage}</p>;
+  }
+
+  return (
+    <ul className="mt-3 list-inside list-disc space-y-1 text-sm leading-6 text-slate-300">
+      {list.map((item) => (
+        <li key={item}>{item}</li>
+      ))}
+    </ul>
+  );
+}
+
 export default function ProductDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -57,6 +122,7 @@ export default function ProductDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
@@ -77,23 +143,9 @@ export default function ProductDetailsPage() {
       }
 
       const fetchedProduct = data.product as AffiliateProduct;
-      setProduct(fetchedProduct);
 
-      setForm({
-        name: fetchedProduct.name || "",
-        platformName: fetchedProduct.platformName || "",
-        affiliateUrl: fetchedProduct.affiliateUrl || "",
-        productUrl: fetchedProduct.productUrl || "",
-        category: fetchedProduct.category || "",
-        targetAudience: fetchedProduct.targetAudience || "",
-        currency: fetchedProduct.currency || "GHS",
-        price: String(fetchedProduct.price || ""),
-        commissionType: fetchedProduct.commissionType || "unknown",
-        commissionValue: String(fetchedProduct.commissionValue || ""),
-        productSummary: fetchedProduct.productSummary || "",
-        buyerPersona: fetchedProduct.buyerPersona || "",
-        status: fetchedProduct.status || "draft",
-      });
+      setProduct(fetchedProduct);
+      setForm(createFormState(fetchedProduct));
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Something went wrong"
@@ -168,7 +220,10 @@ export default function ProductDetailsPage() {
         throw new Error(data.error || "Failed to update product");
       }
 
-      setProduct(data.product);
+      const updatedProduct = data.product as AffiliateProduct;
+
+      setProduct(updatedProduct);
+      setForm(createFormState(updatedProduct));
       setSuccessMessage("Product updated successfully.");
     } catch (error) {
       setErrorMessage(
@@ -176,6 +231,36 @@ export default function ProductDetailsPage() {
       );
     } finally {
       setIsSaving(false);
+    }
+  }
+
+  async function handleAnalyzeProduct() {
+    try {
+      setIsAnalyzing(true);
+      setErrorMessage("");
+      setSuccessMessage("");
+
+      const response = await fetch(`/api/products/${params.id}/analyze`, {
+        method: "POST",
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to analyze product");
+      }
+
+      const analyzedProduct = data.product as AffiliateProduct;
+
+      setProduct(analyzedProduct);
+      setForm(createFormState(analyzedProduct));
+      setSuccessMessage("AI product analysis generated successfully.");
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
+    } finally {
+      setIsAnalyzing(false);
     }
   }
 
@@ -251,13 +336,13 @@ export default function ProductDetailsPage() {
             </h1>
 
             <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-300">
-              Edit product details, prepare campaign data, and later generate AI
-              marketing assets for this product.
+              Edit product details, prepare campaign data, generate AI analysis,
+              and later create marketing assets for this product.
             </p>
           </div>
 
           <div className="flex flex-wrap gap-3">
-            <span className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-300">
+            <span className="rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-bold capitalize text-cyan-300">
               {product.status}
             </span>
 
@@ -432,7 +517,7 @@ export default function ProductDetailsPage() {
                     updateForm("productSummary", event.target.value)
                   }
                   rows={4}
-                  placeholder="Later, the AI analyzer will fill this automatically."
+                  placeholder="The AI analyzer can fill this automatically."
                   className="w-full resize-none rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
                 />
               </div>
@@ -450,6 +535,50 @@ export default function ProductDetailsPage() {
                   placeholder="Who is most likely to buy this product?"
                   className="w-full resize-none rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
                 />
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+                  <p className="text-sm font-semibold text-slate-200">
+                    Pain points
+                  </p>
+                  <BulletList
+                    items={product.painPoints}
+                    emptyMessage="Generate AI analysis to discover buyer pain points."
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+                  <p className="text-sm font-semibold text-slate-200">
+                    Buyer objections
+                  </p>
+                  <BulletList
+                    items={product.objections}
+                    emptyMessage="Generate AI analysis to discover buyer objections."
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+                  <p className="text-sm font-semibold text-slate-200">
+                    Allowed channels
+                  </p>
+                  <BulletList
+                    items={product.allowedChannels}
+                    emptyMessage="Generate AI analysis to see recommended safe channels."
+                  />
+                </div>
+
+                <div className="rounded-2xl border border-white/10 bg-slate-900 p-4">
+                  <p className="text-sm font-semibold text-slate-200">
+                    Banned claims
+                  </p>
+                  <BulletList
+                    items={product.bannedClaims}
+                    emptyMessage="Generate AI analysis to list claims to avoid."
+                  />
+                </div>
               </div>
 
               <div>
@@ -500,8 +629,14 @@ export default function ProductDetailsPage() {
               <h2 className="text-lg font-semibold">Quick actions</h2>
 
               <div className="mt-4 grid gap-3">
-                <button className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300">
-                  Generate AI analysis
+                <button
+                  onClick={handleAnalyzeProduct}
+                  disabled={isAnalyzing}
+                  className="rounded-2xl bg-cyan-400 px-4 py-3 text-sm font-bold text-slate-950 transition hover:bg-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {isAnalyzing
+                    ? "Analyzing product..."
+                    : "Generate AI analysis"}
                 </button>
 
                 <button className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300">
@@ -531,6 +666,45 @@ export default function ProductDetailsPage() {
                     {product.riskScore || 0}/100
                   </p>
                 </div>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <h2 className="text-lg font-semibold">AI analysis</h2>
+
+              <div className="mt-4 space-y-5">
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">
+                    Recommended platforms
+                  </p>
+                  <TagList items={product.recommendedPlatforms} />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-slate-200">
+                    Content angles
+                  </p>
+                  <BulletList
+                    items={product.contentAngles}
+                    emptyMessage="No content angles yet."
+                    limit={6}
+                  />
+                </div>
+
+                {product.analysisNotes && (
+                  <div className="rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+                    <p className="text-sm leading-6 text-amber-100">
+                      {product.analysisNotes}
+                    </p>
+                  </div>
+                )}
+
+                {product.lastAnalyzedAt && (
+                  <p className="text-xs text-slate-500">
+                    Last analyzed:{" "}
+                    {new Date(product.lastAnalyzedAt).toLocaleString()}
+                  </p>
+                )}
               </div>
             </div>
 

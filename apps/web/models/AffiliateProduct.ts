@@ -85,9 +85,28 @@ const AffiliateProductSchema = new Schema(
       default: [],
     },
 
-    bannedClaims: {
+        bannedClaims: {
       type: [String],
       default: [],
+    },
+
+    contentAngles: {
+      type: [String],
+      default: [],
+    },
+
+    recommendedPlatforms: {
+      type: [String],
+      default: [],
+    },
+
+    analysisNotes: {
+      type: String,
+      default: "",
+    },
+
+    lastAnalyzedAt: {
+      type: Date,
     },
 
     trustScore: {
@@ -96,6 +115,7 @@ const AffiliateProductSchema = new Schema(
       min: 0,
       max: 100,
     },
+    
 
     riskScore: {
       type: Number,
