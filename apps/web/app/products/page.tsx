@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 type ProductStatus = "draft" | "active" | "paused" | "archived";
@@ -466,9 +467,12 @@ export default function ProductsPage() {
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-2">
-                      <button className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/15">
-                        View details
-                      </button>
+                      <Link
+  href={`/products/${product._id}`}
+  className="rounded-xl bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+>
+  View details
+</Link>
                       <button className="rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-400/20">
                         Generate campaign
                       </button>
