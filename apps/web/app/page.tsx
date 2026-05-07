@@ -25,6 +25,12 @@ export default function HomePage() {
           >
             Open Product Vault
           </Link>
+          <Link
+            href="/content"
+            className="rounded-2xl border border-white/10 px-6 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Open Content Studio
+          </Link>
 
           <a
             href="/api/health"
