@@ -81,6 +81,13 @@ type GeneratedPost = {
   status: "draft" | "approved" | "scheduled" | "published" | "failed";
   riskNotes?: string[];
   createdAt?: string;
+  affiliateProduct?: {
+  _id: string;
+  name: string;
+  platformName?: string;
+  trackingCode?: string;
+  affiliateUrl?: string;
+} | null;
 };
 
 function createFormState(product: AffiliateProduct): ProductFormState {
@@ -408,6 +415,33 @@ export default function ProductDetailsPage() {
       setErrorMessage("Could not copy tracking link.");
     }
   }
+  function createPostTrackingLink(post: GeneratedPost) {
+  if (!product?.trackingCode || !origin) return "";
+
+  const params = new URLSearchParams({
+    postId: post._id,
+    platform: post.platform,
+  });
+
+  return `${origin}/r/${product.trackingCode}?${params.toString()}`;
+}
+
+async function copyPostTrackingLink(post: GeneratedPost) {
+  const link = createPostTrackingLink(post);
+
+  if (!link) {
+    setErrorMessage("This product does not have a tracking code yet.");
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(link);
+    setSuccessMessage(`${formatPlatformName(post.platform)} tracking link copied.`);
+    setErrorMessage("");
+  } catch {
+    setErrorMessage("Could not copy post tracking link.");
+  }
+}
 
   async function handleDelete() {
     const confirmed = window.confirm(
@@ -833,7 +867,25 @@ export default function ProductDetailsPage() {
                             {post.callToAction}
                           </p>
                         )}
+                        {product.trackingCode && (
+                          <div className="mt-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-3">
+                            <p className="mb-2 text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
+                              Platform tracking link
+                            </p>
 
+                            <p className="break-all text-xs leading-5 text-cyan-100">
+                              {createPostTrackingLink(post)}
+                            </p>
+
+                            <button
+                              type="button"
+                              onClick={() => copyPostTrackingLink(post)}
+                              className="mt-3 rounded-xl bg-cyan-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-cyan-300"
+                            >
+                              Copy {formatPlatformName(post.platform)} link
+                            </button>
+                          </div>
+                        )}
                         {post.hashtags?.length ? (
                           <div className="mt-4 flex flex-wrap gap-2">
                             {post.hashtags.map((tag) => (
