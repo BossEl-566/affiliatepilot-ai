@@ -11,6 +11,7 @@ type AffiliateProduct = {
   name: string;
   platformName?: string;
   affiliateUrl: string;
+  trackingCode?: string;
   productUrl?: string;
   category?: string;
   targetAudience?: string;
@@ -54,6 +55,7 @@ type ProductFormState = {
 type GeneratedPost = {
   _id: string;
   affiliateProductId: string;
+  mediaAssetId?: string;
   platform:
     | "instagram"
     | "facebook"
@@ -164,6 +166,18 @@ function formatPostFormat(format: string) {
     .join(" ");
 }
 
+function statusClasses(status: string) {
+  const classes: Record<string, string> = {
+    draft: "bg-slate-400/10 text-slate-300",
+    approved: "bg-emerald-400/10 text-emerald-300",
+    scheduled: "bg-cyan-400/10 text-cyan-300",
+    published: "bg-violet-400/10 text-violet-300",
+    failed: "bg-red-400/10 text-red-300",
+  };
+
+  return classes[status] || "bg-white/10 text-slate-300";
+}
+
 export default function ProductDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -171,6 +185,7 @@ export default function ProductDetailsPage() {
   const [product, setProduct] = useState<AffiliateProduct | null>(null);
   const [form, setForm] = useState<ProductFormState | null>(null);
   const [generatedPosts, setGeneratedPosts] = useState<GeneratedPost[]>([]);
+  const [origin, setOrigin] = useState("");
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -181,6 +196,13 @@ export default function ProductDetailsPage() {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const trackingLink =
+    product?.trackingCode && origin
+      ? `${origin}/r/${product.trackingCode}`
+      : product?.trackingCode
+        ? `/r/${product.trackingCode}`
+        : "";
 
   async function fetchProduct() {
     try {
@@ -235,6 +257,7 @@ export default function ProductDetailsPage() {
   }
 
   useEffect(() => {
+    setOrigin(window.location.origin);
     fetchProduct();
     fetchGeneratedPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -371,6 +394,18 @@ export default function ProductDetailsPage() {
       );
     } finally {
       setIsGeneratingCampaign(false);
+    }
+  }
+
+  async function handleCopyTrackingLink() {
+    if (!trackingLink) return;
+
+    try {
+      await navigator.clipboard.writeText(trackingLink);
+      setSuccessMessage("Tracking link copied.");
+      setErrorMessage("");
+    } catch {
+      setErrorMessage("Could not copy tracking link.");
     }
   }
 
@@ -698,8 +733,8 @@ export default function ProductDetailsPage() {
                       Generated campaign drafts
                     </h2>
                     <p className="mt-1 text-sm text-slate-400">
-                      Draft posts created for each platform. Later, we will add
-                      editing, approval, scheduling, and publishing.
+                      Draft posts created for each platform. Open a draft to
+                      edit, approve, attach media, or prepare it for publishing.
                     </p>
                   </div>
 
@@ -721,8 +756,8 @@ export default function ProductDetailsPage() {
                   <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-black/20 p-6 text-center">
                     <p className="font-semibold">No campaign drafts yet</p>
                     <p className="mt-2 text-sm text-slate-400">
-                      Click “Generate campaign” to create platform-specific draft
-                      posts.
+                      Click “Generate campaign” to create platform-specific
+                      draft posts.
                     </p>
                   </div>
                 ) : (
@@ -743,7 +778,11 @@ export default function ProductDetailsPage() {
                                 {formatPostFormat(post.format)}
                               </span>
 
-                              <span className="rounded-full bg-amber-400/10 px-3 py-1 text-xs font-medium capitalize text-amber-300">
+                              <span
+                                className={`rounded-full px-3 py-1 text-xs font-bold capitalize ${statusClasses(
+                                  post.status
+                                )}`}
+                              >
                                 {post.status}
                               </span>
                             </div>
@@ -758,6 +797,13 @@ export default function ProductDetailsPage() {
                               </p>
                             )}
                           </div>
+
+                          <Link
+                            href={`/posts/${post._id}`}
+                            className="inline-flex rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+                          >
+                            Open editor
+                          </Link>
                         </div>
 
                         {post.caption && (
@@ -800,14 +846,6 @@ export default function ProductDetailsPage() {
                             ))}
                           </div>
                         ) : null}
-                        <div className="mt-4">
-  <Link
-    href={`/posts/${post._id}`}
-    className="inline-flex rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/20"
-  >
-    Open editor
-  </Link>
-</div>
 
                         {post.riskNotes?.length ? (
                           <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
@@ -895,9 +933,12 @@ export default function ProductDetailsPage() {
                     : "Generate campaign"}
                 </button>
 
-                <button className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300">
+                <Link
+                  href="/media"
+                  className="rounded-2xl border border-white/10 px-4 py-3 text-center text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+                >
                   Attach media
-                </button>
+                </Link>
               </div>
             </div>
 
@@ -961,11 +1002,42 @@ export default function ProductDetailsPage() {
             </div>
 
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
-              <h2 className="text-lg font-semibold">Affiliate link</h2>
-              <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3">
-                <p className="break-all text-xs leading-5 text-slate-400">
-                  {product.affiliateUrl}
+              <h2 className="text-lg font-semibold">Tracking link</h2>
+
+              {product.trackingCode ? (
+                <>
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3">
+                    <p className="break-all text-xs leading-5 text-cyan-300">
+                      {trackingLink}
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleCopyTrackingLink}
+                    className="mt-3 w-full rounded-2xl border border-cyan-400/20 bg-cyan-400/10 px-4 py-3 text-sm font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+                  >
+                    Copy tracking link
+                  </button>
+                </>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-amber-400/20 bg-amber-500/10 p-3">
+                  <p className="text-sm leading-6 text-amber-100">
+                    This product does not have a tracking code yet. Run the
+                    missing tracking code generator once.
+                  </p>
+                </div>
+              )}
+
+              <div className="mt-5">
+                <p className="mb-2 text-sm font-semibold text-slate-200">
+                  Original affiliate link
                 </p>
+                <div className="overflow-hidden rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <p className="break-all text-xs leading-5 text-slate-400">
+                    {product.affiliateUrl}
+                  </p>
+                </div>
               </div>
             </div>
           </aside>

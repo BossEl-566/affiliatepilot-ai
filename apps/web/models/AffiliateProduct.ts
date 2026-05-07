@@ -20,6 +20,13 @@ const AffiliateProductSchema = new Schema(
       trim: true,
     },
 
+    trackingCode: {
+  type: String,
+  unique: true,
+  sparse: true,
+  index: true,
+},
+
     productUrl: {
       type: String,
       trim: true,
