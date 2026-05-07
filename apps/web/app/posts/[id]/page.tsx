@@ -27,6 +27,7 @@ type PostStatus = "draft" | "approved" | "scheduled" | "published" | "failed";
 type GeneratedPost = {
   _id: string;
   affiliateProductId: string;
+  mediaAssetId?: string;
   platform: Platform;
   format: PostFormat;
   title?: string;
@@ -41,7 +42,25 @@ type GeneratedPost = {
   updatedAt?: string;
 };
 
+type MediaAsset = {
+  _id: string;
+  affiliateProductId?: string;
+  originalFileName: string;
+  storedFileName: string;
+  fileUrl: string;
+  mediaType: "image" | "video" | "document" | "unknown";
+  mimeType?: string;
+  sizeBytes?: number;
+  title?: string;
+  description?: string;
+  suggestedCaption?: string;
+  suggestedHashtags?: string[];
+  status: "uploaded" | "attached" | "archived";
+  createdAt?: string;
+};
+
 type PostFormState = {
+  mediaAssetId: string;
   platform: Platform;
   format: PostFormat;
   title: string;
@@ -56,6 +75,7 @@ type PostFormState = {
 
 function createFormState(post: GeneratedPost): PostFormState {
   return {
+    mediaAssetId: post.mediaAssetId || "",
     platform: post.platform || "instagram",
     format: post.format || "text_post",
     title: post.title || "",
@@ -91,19 +111,57 @@ function formatPostFormat(format: string) {
     .join(" ");
 }
 
+function formatFileSize(bytes?: number) {
+  if (!bytes) return "0 KB";
+
+  const kb = bytes / 1024;
+
+  if (kb < 1024) {
+    return `${kb.toFixed(1)} KB`;
+  }
+
+  return `${(kb / 1024).toFixed(1)} MB`;
+}
+
 export default function PostDetailsPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
 
   const [post, setPost] = useState<GeneratedPost | null>(null);
   const [form, setForm] = useState<PostFormState | null>(null);
+  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isLoadingMedia, setIsLoadingMedia] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  async function fetchMediaAssets(productId: string) {
+    try {
+      setIsLoadingMedia(true);
+
+      const response = await fetch(`/api/media?productId=${productId}`, {
+        cache: "no-store",
+      });
+
+      const data = await response.json();
+
+      if (!data.ok) {
+        throw new Error(data.error || "Failed to fetch media assets");
+      }
+
+      setMediaAssets(data.mediaAssets);
+    } catch (error) {
+      setErrorMessage(
+        error instanceof Error ? error.message : "Something went wrong"
+      );
+    } finally {
+      setIsLoadingMedia(false);
+    }
+  }
 
   async function fetchPost() {
     try {
@@ -124,6 +182,8 @@ export default function PostDetailsPage() {
 
       setPost(fetchedPost);
       setForm(createFormState(fetchedPost));
+
+      await fetchMediaAssets(fetchedPost.affiliateProductId);
     } catch (error) {
       setErrorMessage(
         error instanceof Error ? error.message : "Something went wrong"
@@ -152,6 +212,11 @@ export default function PostDetailsPage() {
     });
   }
 
+  const selectedMediaAsset =
+    form?.mediaAssetId && mediaAssets.length
+      ? mediaAssets.find((asset) => asset._id === form.mediaAssetId) || null
+      : null;
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
@@ -168,6 +233,7 @@ export default function PostDetailsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          mediaAssetId: form.mediaAssetId,
           platform: form.platform,
           format: form.format,
           title: form.title,
@@ -363,6 +429,33 @@ export default function PostDetailsPage() {
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-200">
+                  Attached media
+                </label>
+
+                <select
+                  value={form.mediaAssetId}
+                  onChange={(event) =>
+                    updateForm("mediaAssetId", event.target.value)
+                  }
+                  disabled={isLoadingMedia}
+                  className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <option value="">No media attached</option>
+                  {mediaAssets.map((asset) => (
+                    <option key={asset._id} value={asset._id}>
+                      {asset.title || asset.originalFileName} —{" "}
+                      {asset.mediaType}
+                    </option>
+                  ))}
+                </select>
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Only media attached to this product will appear here.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-200">
                   Title
                 </label>
                 <input
@@ -481,6 +574,53 @@ export default function PostDetailsPage() {
 
           <aside className="flex flex-col gap-4">
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+              <h2 className="text-lg font-semibold">Attached media</h2>
+
+              {!selectedMediaAsset ? (
+                <div className="mt-4 rounded-2xl border border-dashed border-white/15 bg-slate-900/60 p-6 text-center">
+                  <p className="text-sm text-slate-400">
+                    No media attached to this draft.
+                  </p>
+                </div>
+              ) : (
+                <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-slate-900">
+                  {selectedMediaAsset.mediaType === "image" ? (
+                    <img
+                      src={selectedMediaAsset.fileUrl}
+                      alt={
+                        selectedMediaAsset.title ||
+                        selectedMediaAsset.originalFileName
+                      }
+                      className="max-h-72 w-full object-cover"
+                    />
+                  ) : selectedMediaAsset.mediaType === "video" ? (
+                    <video
+                      src={selectedMediaAsset.fileUrl}
+                      controls
+                      className="max-h-72 w-full object-cover"
+                    />
+                  ) : (
+                    <div className="p-6 text-center text-sm text-slate-400">
+                      Document attached
+                    </div>
+                  )}
+
+                  <div className="p-4">
+                    <p className="font-semibold">
+                      {selectedMediaAsset.title ||
+                        selectedMediaAsset.originalFileName}
+                    </p>
+
+                    <p className="mt-1 text-sm capitalize text-slate-400">
+                      {selectedMediaAsset.mediaType} •{" "}
+                      {formatFileSize(selectedMediaAsset.sizeBytes)}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <h2 className="text-lg font-semibold">Preview</h2>
 
               <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900 p-4">
@@ -497,6 +637,31 @@ export default function PostDetailsPage() {
                     {form.status}
                   </span>
                 </div>
+
+                {selectedMediaAsset && (
+                  <div className="mt-4 overflow-hidden rounded-2xl border border-white/10 bg-black/20">
+                    {selectedMediaAsset.mediaType === "image" ? (
+                      <img
+                        src={selectedMediaAsset.fileUrl}
+                        alt={
+                          selectedMediaAsset.title ||
+                          selectedMediaAsset.originalFileName
+                        }
+                        className="max-h-72 w-full object-cover"
+                      />
+                    ) : selectedMediaAsset.mediaType === "video" ? (
+                      <video
+                        src={selectedMediaAsset.fileUrl}
+                        controls
+                        className="max-h-72 w-full object-cover"
+                      />
+                    ) : (
+                      <div className="p-6 text-center text-sm text-slate-400">
+                        Document preview unavailable
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 <h3 className="mt-4 text-lg font-bold">
                   {form.title || "Untitled draft"}

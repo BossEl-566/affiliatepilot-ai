@@ -8,6 +8,13 @@ const GeneratedPostSchema = new Schema(
       required: true,
       index: true,
     },
+    
+    mediaAssetId: {
+      type: Schema.Types.ObjectId,
+      ref: "MediaAsset",
+      required: false,
+      index: true,
+    },
 
     platform: {
       type: String,
