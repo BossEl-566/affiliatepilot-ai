@@ -30,3 +30,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea
+
+# web uploads
+apps/web/public/uploads/*
+!apps/web/public/uploads/.gitkeep
