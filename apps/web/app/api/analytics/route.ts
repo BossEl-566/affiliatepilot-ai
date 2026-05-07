@@ -15,7 +15,7 @@ export async function GET() {
         ClickEventModel.find().sort({ createdAt: -1 }).limit(20).lean(),
       ]);
 
-    const clicksByProduct = await ClickEventModel.aggregate([
+    const clicksByProductRaw = await ClickEventModel.aggregate([
       {
         $group: {
           _id: "$affiliateProductId",
@@ -30,12 +30,47 @@ export async function GET() {
       {
         $limit: 10,
       },
+      {
+        $lookup: {
+          from: "affiliateproducts",
+          localField: "_id",
+          foreignField: "_id",
+          as: "product",
+        },
+      },
+      {
+        $unwind: {
+          path: "$product",
+          preserveNullAndEmptyArrays: true,
+        },
+      },
+      {
+        $project: {
+          _id: 1,
+          clicks: 1,
+          productName: "$product.name",
+          platformName: "$product.platformName",
+          trackingCode: "$product.trackingCode",
+        },
+      },
     ]);
 
-    const clicksByPlatform = await ClickEventModel.aggregate([
+    const clicksByPlatformRaw = await ClickEventModel.aggregate([
       {
         $group: {
-          _id: "$platform",
+          _id: {
+            $cond: [
+              {
+                $or: [
+                  { $eq: ["$platform", ""] },
+                  { $eq: ["$platform", null] },
+                  { $not: ["$platform"] },
+                ],
+              },
+              "unknown",
+              "$platform",
+            ],
+          },
           clicks: { $sum: 1 },
         },
       },
@@ -46,6 +81,23 @@ export async function GET() {
       },
     ]);
 
+    const recentClicksWithProducts = await Promise.all(
+      recentClicks.map(async (click) => {
+        const product = await AffiliateProductModel.findById(
+          click.affiliateProductId
+        )
+          .select("name platformName trackingCode")
+          .lean();
+
+        return {
+          ...click,
+          productName: product?.name || "Unknown product",
+          productPlatformName: product?.platformName || "",
+          productTrackingCode: product?.trackingCode || "",
+        };
+      })
+    );
+
     return Response.json({
       ok: true,
       stats: {
@@ -53,9 +105,9 @@ export async function GET() {
         totalPosts,
         totalClicks,
       },
-      clicksByProduct,
-      clicksByPlatform,
-      recentClicks,
+      clicksByProduct: clicksByProductRaw,
+      clicksByPlatform: clicksByPlatformRaw,
+      recentClicks: recentClicksWithProducts,
     });
   } catch (error) {
     console.error("Failed to fetch analytics:", error);
