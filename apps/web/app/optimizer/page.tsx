@@ -12,6 +12,13 @@ type OptimizerStats = {
   approvedPosts: number;
   scheduledPosts: number;
   publishedPosts: number;
+  totalLeads: number;
+  newLeads: number;
+  contactedLeads: number;
+  interestedLeads: number;
+  convertedLeads: number;
+  notInterestedLeads: number;
+  averageInterestLevel: number;
 };
 
 type RecommendedAction = {
@@ -42,6 +49,13 @@ type ClicksByPost = {
   status?: string;
 };
 
+type LeadsByPlatform = {
+  _id: string;
+  leads: number;
+  interested: number;
+  converted: number;
+};
+
 type OptimizerResponse = {
   ok: boolean;
   generatedAt: string;
@@ -52,10 +66,12 @@ type OptimizerResponse = {
   };
   stats: OptimizerStats;
   leaders: {
-    topPlatform?: string;
-    topProduct?: ClicksByProduct | null;
-    topPost?: ClicksByPost | null;
-  };
+  topPlatform?: string;
+  topLeadPlatform?: string;
+  topProduct?: ClicksByProduct | null;
+  topPost?: ClicksByPost | null;
+};
+leadsByPlatform: LeadsByPlatform[];
   clicksByPlatform: ClicksByPlatform[];
   clicksByProduct: ClicksByProduct[];
   clicksByPost: ClicksByPost[];
@@ -249,6 +265,36 @@ export default function OptimizerPage() {
               </div>
             </section>
 
+            <section className="grid gap-4 md:grid-cols-4">
+  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <p className="text-sm text-slate-400">Total leads</p>
+    <p className="mt-2 text-4xl font-black text-white">
+      {data.stats.totalLeads}
+    </p>
+  </div>
+
+  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <p className="text-sm text-slate-400">Interested leads</p>
+    <p className="mt-2 text-4xl font-black text-emerald-300">
+      {data.stats.interestedLeads}
+    </p>
+  </div>
+
+  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <p className="text-sm text-slate-400">Converted leads</p>
+    <p className="mt-2 text-4xl font-black text-yellow-300">
+      {data.stats.convertedLeads}
+    </p>
+  </div>
+
+  <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+    <p className="text-sm text-slate-400">Avg. interest</p>
+    <p className="mt-2 text-4xl font-black text-cyan-300">
+      {data.stats.averageInterestLevel.toFixed(1)}/5
+    </p>
+  </div>
+</section>
+
             <section className="grid gap-6 lg:grid-cols-[1fr_420px]">
               <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
                 <h2 className="text-xl font-semibold">Recommended actions</h2>
@@ -294,6 +340,12 @@ export default function OptimizerPage() {
                         {formatPlatformName(data.leaders.topPlatform)}
                       </p>
                     </div>
+                    <div className="rounded-2xl bg-slate-900 p-4">
+  <p className="text-sm text-slate-400">Top lead platform</p>
+  <p className="mt-1 text-2xl font-black text-emerald-300">
+    {formatPlatformName(data.leaders.topLeadPlatform)}
+  </p>
+</div>
 
                     <div className="rounded-2xl bg-slate-900 p-4">
                       <p className="text-sm text-slate-400">Top product</p>
@@ -437,6 +489,50 @@ export default function OptimizerPage() {
                 )}
               </div>
             </section>
+            <section className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
+  <h2 className="text-xl font-semibold">Lead platform performance</h2>
+  <p className="mt-1 text-sm text-slate-400">
+    Platforms ranked by manually recorded leads and conversions.
+  </p>
+
+  {data.leadsByPlatform.length === 0 ? (
+    <div className="mt-5 rounded-2xl border border-dashed border-white/15 bg-slate-900/60 p-8 text-center">
+      <p className="font-semibold">No lead platform data yet</p>
+      <p className="mt-2 text-sm text-slate-400">
+        Add leads from the Lead Inbox to see which platform produces serious
+        prospects.
+      </p>
+    </div>
+  ) : (
+    <div className="mt-5 grid gap-4">
+      {data.leadsByPlatform.map((item) => (
+        <div
+          key={item._id}
+          className="rounded-2xl border border-white/10 bg-slate-900 p-4"
+        >
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-lg font-bold">
+                {formatPlatformName(item._id)}
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                {item.leads} leads • {item.interested} interested •{" "}
+                {item.converted} converted
+              </p>
+            </div>
+
+            <Link
+              href="/leads"
+              className="rounded-xl bg-cyan-400/10 px-4 py-2 text-xs font-bold text-cyan-300 transition hover:bg-cyan-400/20"
+            >
+              Open leads
+            </Link>
+          </div>
+        </div>
+      ))}
+    </div>
+  )}
+</section>
           </>
         )}
       </section>

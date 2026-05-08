@@ -2,6 +2,7 @@ import { connectToDatabase } from "@/lib/mongodb";
 import { AffiliateProductModel } from "@/models/AffiliateProduct";
 import { GeneratedPostModel } from "@/models/GeneratedPost";
 import { ClickEventModel } from "@/models/ClickEvent";
+import { LeadModel } from "@/models/Lead";
 
 export const runtime = "nodejs";
 
@@ -42,6 +43,11 @@ function buildRecommendedActions(input: {
   clicksLast7Days: number;
   approvedPosts: number;
   draftPosts: number;
+  totalLeads: number;
+  interestedLeads: number;
+  convertedLeads: number;
+  averageInterestLevel: number;
+  topLeadPlatform?: string;
   topPlatform?: string;
   topProductName?: string;
   topPostTitle?: string;
@@ -127,6 +133,61 @@ function buildRecommendedActions(input: {
         "You have more drafts than approved posts. Review old drafts, delete weak ones, and approve the ones worth publishing.",
     });
   }
+    if (input.totalClicks > 0 && input.totalLeads === 0) {
+    actions.push({
+      priority: "high",
+      title: "Start recording leads from your clicks",
+      description:
+        "You are getting tracked clicks, but no leads are recorded. When someone comments, DMs, or asks for details, add them to Lead Inbox so you can measure real interest.",
+    });
+  }
+
+  if (input.totalLeads > 0 && input.interestedLeads === 0) {
+    actions.push({
+      priority: "medium",
+      title: "Qualify your leads",
+      description:
+        "You have leads, but none are marked as Interested yet. Follow up with them and update their status so the system can identify serious prospects.",
+    });
+  }
+
+  if (input.interestedLeads > 0 && input.convertedLeads === 0) {
+    actions.push({
+      priority: "high",
+      title: "Convert interested leads",
+      description:
+        "Some leads are interested but none are converted yet. Send clearer product details, answer objections, and use your tracking link when sharing the offer.",
+    });
+  }
+
+  if (input.convertedLeads > 0) {
+    actions.push({
+      priority: "high",
+      title: "Repeat your conversion path",
+      description:
+        "You have at least one converted lead. Review the platform, product, message, and CTA that led to conversion, then create more content using that same angle.",
+    });
+  }
+
+  if (input.averageInterestLevel >= 4) {
+    actions.push({
+      priority: "medium",
+      title: "Follow up quickly with high-interest leads",
+      description:
+        "Your average lead interest is strong. Prioritize fast follow-up and send short, helpful answers instead of long sales messages.",
+    });
+  }
+
+  if (input.topLeadPlatform && input.topLeadPlatform !== "unknown") {
+    actions.push({
+      priority: "medium",
+      title: `Build more lead capture on ${formatPlatformName(
+        input.topLeadPlatform
+      )}`,
+      description:
+        "This platform is currently producing the strongest lead activity. Use clearer CTAs like “Comment START” or “DM me DETAILS” on that platform.",
+    });
+  }
 
   actions.push({
     priority: "medium",
@@ -145,28 +206,51 @@ export async function GET() {
     const sevenDaysAgo = getStartOfWeekWindow();
 
     const [
-      totalProducts,
-      totalPosts,
-      totalClicks,
-      clicksLast7Days,
-      draftPosts,
-      approvedPosts,
-      scheduledPosts,
-      publishedPosts,
-    ] = await Promise.all([
-      AffiliateProductModel.countDocuments(),
-      GeneratedPostModel.countDocuments(),
-      ClickEventModel.countDocuments(),
-      ClickEventModel.countDocuments({
-        createdAt: {
-          $gte: sevenDaysAgo,
-        },
-      }),
-      GeneratedPostModel.countDocuments({ status: "draft" }),
-      GeneratedPostModel.countDocuments({ status: "approved" }),
-      GeneratedPostModel.countDocuments({ status: "scheduled" }),
-      GeneratedPostModel.countDocuments({ status: "published" }),
-    ]);
+  totalProducts,
+  totalPosts,
+  totalClicks,
+  clicksLast7Days,
+  draftPosts,
+  approvedPosts,
+  scheduledPosts,
+  publishedPosts,
+  totalLeads,
+  newLeads,
+  contactedLeads,
+  interestedLeads,
+  convertedLeads,
+  notInterestedLeads,
+] = await Promise.all([
+  AffiliateProductModel.countDocuments(),
+  GeneratedPostModel.countDocuments(),
+  ClickEventModel.countDocuments(),
+  ClickEventModel.countDocuments({
+    createdAt: {
+      $gte: sevenDaysAgo,
+    },
+  }),
+  GeneratedPostModel.countDocuments({ status: "draft" }),
+  GeneratedPostModel.countDocuments({ status: "approved" }),
+  GeneratedPostModel.countDocuments({ status: "scheduled" }),
+  GeneratedPostModel.countDocuments({ status: "published" }),
+  LeadModel.countDocuments(),
+  LeadModel.countDocuments({ status: "new" }),
+  LeadModel.countDocuments({ status: "contacted" }),
+  LeadModel.countDocuments({ status: "interested" }),
+  LeadModel.countDocuments({ status: "converted" }),
+  LeadModel.countDocuments({ status: "not_interested" }),
+]);
+const leadInterestStats = await LeadModel.aggregate([
+  {
+    $group: {
+      _id: null,
+      averageInterestLevel: { $avg: "$interestLevel" },
+    },
+  },
+]);
+
+const averageInterestLevel =
+  leadInterestStats[0]?.averageInterestLevel || 0;
 
     const clicksByPlatform = await ClickEventModel.aggregate([
       {
@@ -192,7 +276,37 @@ export async function GET() {
         },
       },
     ]);
-
+const leadsByPlatform = await LeadModel.aggregate([
+  {
+    $group: {
+      _id: {
+        $cond: [
+          {
+            $or: [{ $eq: ["$platform", ""] }, { $eq: ["$platform", null] }],
+          },
+          "unknown",
+          "$platform",
+        ],
+      },
+      leads: { $sum: 1 },
+      converted: {
+        $sum: {
+          $cond: [{ $eq: ["$status", "converted"] }, 1, 0],
+        },
+      },
+      interested: {
+        $sum: {
+          $cond: [{ $eq: ["$status", "interested"] }, 1, 0],
+        },
+      },
+    },
+  },
+  {
+    $sort: {
+      leads: -1,
+    },
+  },
+]);
     const clicksByProduct = await ClickEventModel.aggregate([
       {
         $group: {
@@ -283,20 +397,26 @@ export async function GET() {
     ]);
 
     const topPlatform = clicksByPlatform[0]?._id || "unknown";
-    const topProductName = clicksByProduct[0]?.productName || "";
-    const topPostTitle = clicksByPost[0]?.postTitle || "";
+const topLeadPlatform = leadsByPlatform[0]?._id || "unknown";
+const topProductName = clicksByProduct[0]?.productName || "";
+const topPostTitle = clicksByPost[0]?.postTitle || "";
 
     const actions = buildRecommendedActions({
-      totalProducts,
-      totalPosts,
-      totalClicks,
-      clicksLast7Days,
-      approvedPosts,
-      draftPosts,
-      topPlatform,
-      topProductName,
-      topPostTitle,
-    });
+  totalProducts,
+  totalPosts,
+  totalClicks,
+  clicksLast7Days,
+  approvedPosts,
+  draftPosts,
+  totalLeads,
+  interestedLeads,
+  convertedLeads,
+  averageInterestLevel,
+  topLeadPlatform,
+  topPlatform,
+  topProductName,
+  topPostTitle,
+});
 
     const summaryParts = [];
 
@@ -326,35 +446,56 @@ export async function GET() {
       summaryParts.push(`${topProductName} is currently the top product.`);
     }
 
+    if (totalLeads === 0) {
+  summaryParts.push(
+    "No leads have been recorded yet, so the next priority is to capture people who comment, DM, or ask questions."
+  );
+} else {
+  summaryParts.push(
+    `You have recorded ${totalLeads} lead${
+      totalLeads === 1 ? "" : "s"
+    }, including ${interestedLeads} interested and ${convertedLeads} converted.`
+  );
+}
+
     return Response.json({
-      ok: true,
-      generatedAt: new Date().toISOString(),
-      window: {
-        label: "Last 7 days",
-        start: sevenDaysAgo.toISOString(),
-        end: new Date().toISOString(),
-      },
-      stats: {
-        totalProducts,
-        totalPosts,
-        totalClicks,
-        clicksLast7Days,
-        draftPosts,
-        approvedPosts,
-        scheduledPosts,
-        publishedPosts,
-      },
-      leaders: {
-        topPlatform,
-        topProduct: clicksByProduct[0] || null,
-        topPost: clicksByPost[0] || null,
-      },
-      clicksByPlatform,
-      clicksByProduct,
-      clicksByPost,
-      summary: summaryParts.join(" "),
-      recommendedActions: actions,
-    });
+  ok: true,
+  generatedAt: new Date().toISOString(),
+  window: {
+    label: "Last 7 days",
+    start: sevenDaysAgo.toISOString(),
+    end: new Date().toISOString(),
+  },
+  stats: {
+    totalProducts,
+    totalPosts,
+    totalClicks,
+    clicksLast7Days,
+    draftPosts,
+    approvedPosts,
+    scheduledPosts,
+    publishedPosts,
+    totalLeads,
+    newLeads,
+    contactedLeads,
+    interestedLeads,
+    convertedLeads,
+    notInterestedLeads,
+    averageInterestLevel,
+  },
+  leaders: {
+    topPlatform,
+    topLeadPlatform,
+    topProduct: clicksByProduct[0] || null,
+    topPost: clicksByPost[0] || null,
+  },
+  clicksByPlatform,
+  clicksByProduct,
+  clicksByPost,
+  leadsByPlatform,
+  summary: summaryParts.join(" "),
+  recommendedActions: actions,
+});
   } catch (error) {
     console.error("Failed to generate weekly optimizer:", error);
 
