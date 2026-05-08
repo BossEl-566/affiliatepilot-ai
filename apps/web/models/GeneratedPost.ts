@@ -73,6 +73,7 @@ const GeneratedPostSchema = new Schema(
       type: String,
       default: "",
     },
+    
 
     status: {
       type: String,

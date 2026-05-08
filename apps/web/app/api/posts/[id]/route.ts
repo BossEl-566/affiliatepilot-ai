@@ -95,22 +95,24 @@ export async function PATCH(request: Request, context: RouteContext) {
     const post = await GeneratedPostModel.findByIdAndUpdate(
       id,
       {
-          $set: {
-      mediaAssetId:
-        body.mediaAssetId && isValidObjectId(body.mediaAssetId)
-          ? body.mediaAssetId
-          : undefined,
-      platform: body.platform,
-      format: body.format,
-      title: body.title,
-      hook: body.hook,
-      caption: body.caption,
-      script: body.script,
-      callToAction: body.callToAction,
-      hashtags: normalizeStringArray(body.hashtags),
-      riskNotes: normalizeStringArray(body.riskNotes),
-      status: body.status,
-    },
+         $set: {
+  mediaAssetId:
+    body.mediaAssetId && isValidObjectId(body.mediaAssetId)
+      ? body.mediaAssetId
+      : undefined,
+  platform: body.platform,
+  format: body.format,
+  title: body.title,
+  hook: body.hook,
+  caption: body.caption,
+  script: body.script,
+  callToAction: body.callToAction,
+  hashtags: normalizeStringArray(body.hashtags),
+  riskNotes: normalizeStringArray(body.riskNotes),
+  status: body.status,
+  scheduledAt: body.scheduledAt ? new Date(body.scheduledAt) : undefined,
+  publishedAt: body.publishedAt ? new Date(body.publishedAt) : undefined,
+},
       },
       {
         new: true,

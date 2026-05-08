@@ -40,6 +40,8 @@ type GeneratedPost = {
   riskNotes?: string[];
   createdAt?: string;
   updatedAt?: string;
+  scheduledAt?: string;
+publishedAt?: string;
 };
 
 type MediaAsset = {
@@ -71,6 +73,8 @@ type PostFormState = {
   callToAction: string;
   status: PostStatus;
   riskNotes: string;
+  scheduledAt: string;
+publishedAt: string;
 };
 
 function createFormState(post: GeneratedPost): PostFormState {
@@ -86,6 +90,8 @@ function createFormState(post: GeneratedPost): PostFormState {
     callToAction: post.callToAction || "",
     status: post.status || "draft",
     riskNotes: post.riskNotes?.join(", ") || "",
+    scheduledAt: toDateTimeLocalValue(post.scheduledAt),
+publishedAt: toDateTimeLocalValue(post.publishedAt),
   };
 }
 
@@ -121,6 +127,24 @@ function formatFileSize(bytes?: number) {
   }
 
   return `${(kb / 1024).toFixed(1)} MB`;
+}
+function toDateTimeLocalValue(value?: string) {
+  if (!value) return "";
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) return "";
+
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+
+  return localDate.toISOString().slice(0, 16);
+}
+
+function fromDateTimeLocalValue(value: string) {
+  if (!value) return "";
+
+  return new Date(value).toISOString();
 }
 
 export default function PostDetailsPage() {
@@ -233,18 +257,20 @@ export default function PostDetailsPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          mediaAssetId: form.mediaAssetId,
-          platform: form.platform,
-          format: form.format,
-          title: form.title,
-          hook: form.hook,
-          caption: form.caption,
-          script: form.script,
-          hashtags: form.hashtags,
-          callToAction: form.callToAction,
-          status: form.status,
-          riskNotes: form.riskNotes,
-        }),
+  mediaAssetId: form.mediaAssetId,
+  platform: form.platform,
+  format: form.format,
+  title: form.title,
+  hook: form.hook,
+  caption: form.caption,
+  script: form.script,
+  hashtags: form.hashtags,
+  callToAction: form.callToAction,
+  status: form.status,
+  riskNotes: form.riskNotes,
+  scheduledAt: fromDateTimeLocalValue(form.scheduledAt),
+  publishedAt: fromDateTimeLocalValue(form.publishedAt),
+}),
       });
 
       const data = await response.json();
@@ -426,6 +452,37 @@ export default function PostDetailsPage() {
                   </select>
                 </div>
               </div>
+              <div className="grid gap-4 md:grid-cols-2">
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-200">
+      Scheduled date/time
+    </label>
+    <input
+      type="datetime-local"
+      value={form.scheduledAt}
+      onChange={(event) => updateForm("scheduledAt", event.target.value)}
+      className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+    />
+    <p className="mt-2 text-xs text-slate-500">
+      Set this when the post should be published manually or later by automation.
+    </p>
+  </div>
+
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-200">
+      Published date/time
+    </label>
+    <input
+      type="datetime-local"
+      value={form.publishedAt}
+      onChange={(event) => updateForm("publishedAt", event.target.value)}
+      className="w-full rounded-2xl border border-white/10 bg-slate-900 px-4 py-3 text-sm text-white outline-none transition focus:border-cyan-400"
+    />
+    <p className="mt-2 text-xs text-slate-500">
+      Use this after you manually publish the post.
+    </p>
+  </div>
+</div>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-200">
