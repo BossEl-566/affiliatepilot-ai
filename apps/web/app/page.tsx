@@ -61,6 +61,12 @@ export default function HomePage() {
           >
             Open Lead Inbox
           </Link>
+          <Link
+            href="/templates"
+            className="rounded-2xl border border-white/10 px-6 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300"
+          >
+            Open Message Templates
+          </Link>
         </div>
       </section>
     </main>
