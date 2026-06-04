@@ -1,0 +1,825 @@
+import { GoogleGenAI } from "@google/genai";
+
+const SUPPORTED_PLATFORMS = [
+  "instagram",
+  "facebook",
+  "tiktok",
+  "youtube",
+  "telegram",
+  "pinterest",
+  "x",
+] as const;
+
+const SUPPORTED_FORMATS = [
+  "short_video",
+  "image_post",
+  "carousel",
+  "text_post",
+  "thread",
+  "pin",
+] as const;
+
+type CampaignPlatform = (typeof SUPPORTED_PLATFORMS)[number];
+type CampaignFormat = (typeof SUPPORTED_FORMATS)[number];
+
+type AiMode = "gemini" | "fallback";
+
+type AiResult<T> = {
+  data: T;
+  mode: AiMode;
+  warning?: string;
+};
+
+export type AffiliateProductInput = {
+  name?: string;
+  platformName?: string;
+  category?: string;
+  targetAudience?: string;
+  currency?: string;
+  price?: number;
+  commissionType?: "percentage" | "fixed" | "unknown";
+  commissionValue?: number;
+  productSummary?: string;
+  buyerPersona?: string;
+  painPoints?: string[];
+  objections?: string[];
+  allowedChannels?: string[];
+  bannedClaims?: string[];
+  contentAngles?: string[];
+  recommendedPlatforms?: string[];
+};
+
+export type ProductAnalysis = {
+  productSummary: string;
+  buyerPersona: string;
+  painPoints: string[];
+  objections: string[];
+  allowedChannels: string[];
+  bannedClaims: string[];
+  contentAngles: string[];
+  recommendedPlatforms: string[];
+  analysisNotes: string;
+  trustScore: number;
+  riskScore: number;
+};
+
+export type CampaignDraft = {
+  platform: CampaignPlatform;
+  format: CampaignFormat;
+  title: string;
+  hook: string;
+  caption: string;
+  script: string;
+  hashtags: string[];
+  callToAction: string;
+  riskNotes: string[];
+};
+
+export type LeadInput = {
+  name?: string;
+  username?: string;
+  platform?: string;
+  source?: string;
+  message?: string;
+  notes?: string;
+  interestLevel?: number;
+  status?: string;
+};
+
+export type LeadReplySuggestion = {
+  reply: string;
+  followUpQuestion: string;
+  riskNotes: string[];
+};
+
+const productAnalysisSchema = {
+  type: "object",
+  properties: {
+    productSummary: {
+      type: "string",
+      description: "Clear and accurate summary of the affiliate product.",
+    },
+    buyerPersona: {
+      type: "string",
+      description: "Description of the likely buyer without inventing facts.",
+    },
+    painPoints: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 8,
+    },
+    objections: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 8,
+    },
+    allowedChannels: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 8,
+    },
+    bannedClaims: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 3,
+      maxItems: 10,
+    },
+    contentAngles: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 4,
+      maxItems: 10,
+    },
+    recommendedPlatforms: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: [
+          "instagram",
+          "facebook",
+          "tiktok",
+          "youtube",
+          "telegram",
+          "pinterest",
+          "x",
+        ],
+      },
+      minItems: 3,
+      maxItems: 7,
+    },
+    analysisNotes: {
+      type: "string",
+    },
+    trustScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+    riskScore: {
+      type: "integer",
+      minimum: 0,
+      maximum: 100,
+    },
+  },
+  required: [
+    "productSummary",
+    "buyerPersona",
+    "painPoints",
+    "objections",
+    "allowedChannels",
+    "bannedClaims",
+    "contentAngles",
+    "recommendedPlatforms",
+    "analysisNotes",
+    "trustScore",
+    "riskScore",
+  ],
+};
+
+const campaignSchema = {
+  type: "object",
+  properties: {
+    posts: {
+      type: "array",
+      minItems: 7,
+      maxItems: 7,
+      items: {
+        type: "object",
+        properties: {
+          platform: {
+            type: "string",
+            enum: [
+              "instagram",
+              "facebook",
+              "tiktok",
+              "youtube",
+              "telegram",
+              "pinterest",
+              "x",
+            ],
+          },
+          format: {
+            type: "string",
+            enum: [
+              "short_video",
+              "image_post",
+              "carousel",
+              "text_post",
+              "thread",
+              "pin",
+            ],
+          },
+          title: { type: "string" },
+          hook: { type: "string" },
+          caption: { type: "string" },
+          script: { type: "string" },
+          hashtags: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 2,
+            maxItems: 8,
+          },
+          callToAction: { type: "string" },
+          riskNotes: {
+            type: "array",
+            items: { type: "string" },
+            minItems: 1,
+            maxItems: 5,
+          },
+        },
+        required: [
+          "platform",
+          "format",
+          "title",
+          "hook",
+          "caption",
+          "script",
+          "hashtags",
+          "callToAction",
+          "riskNotes",
+        ],
+      },
+    },
+  },
+  required: ["posts"],
+};
+
+const leadReplySchema = {
+  type: "object",
+  properties: {
+    reply: {
+      type: "string",
+      description: "Short professional reply to send to the lead.",
+    },
+    followUpQuestion: {
+      type: "string",
+      description: "A helpful question that moves the conversation forward.",
+    },
+    riskNotes: {
+      type: "array",
+      items: { type: "string" },
+      minItems: 1,
+      maxItems: 5,
+    },
+  },
+  required: ["reply", "followUpQuestion", "riskNotes"],
+};
+
+function getProvider() {
+  return String(process.env.AI_PROVIDER || "fallback").toLowerCase();
+}
+
+function getModel() {
+  return process.env.GEMINI_MODEL || "gemini-2.5-flash-lite";
+}
+
+function hasGeminiConfiguration() {
+  return getProvider() === "gemini" && Boolean(process.env.GEMINI_API_KEY);
+}
+
+function createGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY is not configured.");
+  }
+
+  return new GoogleGenAI({
+    apiKey,
+  });
+}
+
+export function getAiRuntimeStatus() {
+  return {
+    provider: getProvider(),
+    configured: hasGeminiConfiguration(),
+    mode: hasGeminiConfiguration() ? "gemini" : "fallback",
+    model: getModel(),
+  };
+}
+
+function cleanString(value: unknown, fallback = "") {
+  if (typeof value !== "string") return fallback;
+
+  return value.trim() || fallback;
+}
+
+function cleanStringArray(value: unknown, fallback: string[] = []) {
+  if (!Array.isArray(value)) return fallback;
+
+  const values = value
+    .map((item) => cleanString(item))
+    .filter(Boolean)
+    .map((item) => item.replace(/^#/, ""));
+
+  return Array.from(new Set(values));
+}
+
+function clampScore(value: unknown, fallback: number) {
+  const parsed = Number(value);
+
+  if (!Number.isFinite(parsed)) return fallback;
+
+  return Math.max(0, Math.min(100, Math.round(parsed)));
+}
+
+function isPlatform(value: unknown): value is CampaignPlatform {
+  return SUPPORTED_PLATFORMS.includes(value as CampaignPlatform);
+}
+
+function isFormat(value: unknown): value is CampaignFormat {
+  return SUPPORTED_FORMATS.includes(value as CampaignFormat);
+}
+
+function createProductPromptPayload(product: AffiliateProductInput) {
+  return {
+    name: product.name || "",
+    platformName: product.platformName || "",
+    category: product.category || "",
+    targetAudience: product.targetAudience || "",
+    currency: product.currency || "",
+    price: product.price || 0,
+    commissionType: product.commissionType || "unknown",
+    commissionValue: product.commissionValue || 0,
+    productSummary: product.productSummary || "",
+    buyerPersona: product.buyerPersona || "",
+    painPoints: product.painPoints || [],
+    objections: product.objections || [],
+    allowedChannels: product.allowedChannels || [],
+    bannedClaims: product.bannedClaims || [],
+    contentAngles: product.contentAngles || [],
+    recommendedPlatforms: product.recommendedPlatforms || [],
+  };
+}
+
+async function requestStructuredJson<T>(input: {
+  prompt: string;
+  schema: Record<string, unknown>;
+}) {
+  const client = createGeminiClient();
+
+  const response = await client.models.generateContent({
+    model: getModel(),
+    contents: input.prompt,
+    config: {
+      responseMimeType: "application/json",
+      responseSchema: input.schema as never,
+    },
+  });
+
+  if (!response.text) {
+    throw new Error("Gemini returned an empty response.");
+  }
+
+  return JSON.parse(response.text) as T;
+}
+
+function createFallbackAnalysis(
+  product: AffiliateProductInput
+): ProductAnalysis {
+  const name = product.name || "This product";
+  const category = product.category || "digital product";
+
+  return {
+    productSummary: `${name} is a ${category}. Explain the offer clearly, show the practical value, and encourage buyers to review the full details before deciding.`,
+
+    buyerPersona:
+      product.targetAudience ||
+      "People seeking a practical solution who need a clear explanation before making a purchasing decision.",
+
+    painPoints: [
+      "The buyer may not understand exactly what the offer includes.",
+      "The buyer may be unsure whether the product suits their goal.",
+      "The buyer may be concerned about value for money.",
+      "The buyer may need a beginner-friendly explanation.",
+    ],
+
+    objections: [
+      "What exactly will I receive after buying?",
+      "Is the product suitable for a beginner?",
+      "Is the offer worth the price?",
+      "How can I verify the product details?",
+    ],
+
+    allowedChannels: [
+      "Educational posts",
+      "Short-form videos",
+      "Telegram posts",
+      "Opt-in direct replies",
+      "Website content",
+    ],
+
+    bannedClaims: [
+      "Guaranteed income",
+      "Guaranteed results",
+      "Instant success",
+      "Risk-free profit",
+      "False scarcity",
+      "Unverified testimonials",
+    ],
+
+    contentAngles: [
+      `Explain what ${name} includes.`,
+      "Create a beginner-friendly breakdown.",
+      "Answer common buyer questions.",
+      "Share an honest checklist before purchase.",
+      "Explain who the product is suitable for.",
+      "Create a practical pros-and-cons post.",
+    ],
+
+    recommendedPlatforms: [
+      "instagram",
+      "facebook",
+      "tiktok",
+      "youtube",
+      "telegram",
+      "x",
+    ],
+
+    analysisNotes:
+      "Local fallback analysis generated. Verify every product claim before publishing.",
+
+    trustScore: 55,
+    riskScore: 35,
+  };
+}
+
+function normalizeAnalysis(
+  raw: Partial<ProductAnalysis>,
+  fallback: ProductAnalysis
+): ProductAnalysis {
+  return {
+    productSummary: cleanString(raw.productSummary, fallback.productSummary),
+
+    buyerPersona: cleanString(raw.buyerPersona, fallback.buyerPersona),
+
+    painPoints: cleanStringArray(raw.painPoints, fallback.painPoints),
+
+    objections: cleanStringArray(raw.objections, fallback.objections),
+
+    allowedChannels: cleanStringArray(
+      raw.allowedChannels,
+      fallback.allowedChannels
+    ),
+
+    bannedClaims: cleanStringArray(raw.bannedClaims, fallback.bannedClaims),
+
+    contentAngles: cleanStringArray(raw.contentAngles, fallback.contentAngles),
+
+    recommendedPlatforms: cleanStringArray(
+      raw.recommendedPlatforms,
+      fallback.recommendedPlatforms
+    ),
+
+    analysisNotes: cleanString(raw.analysisNotes, fallback.analysisNotes),
+
+    trustScore: clampScore(raw.trustScore, fallback.trustScore),
+
+    riskScore: clampScore(raw.riskScore, fallback.riskScore),
+  };
+}
+
+export async function analyzeAffiliateProduct(
+  product: AffiliateProductInput
+): Promise<AiResult<ProductAnalysis>> {
+  const fallback = createFallbackAnalysis(product);
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallback,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw = await requestStructuredJson<Partial<ProductAnalysis>>({
+      schema: productAnalysisSchema,
+
+      prompt: `
+You are an ethical affiliate-marketing product analyst.
+
+Analyze the product information below.
+
+Rules:
+- Use only the supplied product data.
+- Do not invent product features.
+- Do not promise guaranteed income or guaranteed outcomes.
+- Identify claims that the marketer should avoid.
+- Recommend education-first content.
+- Return a practical analysis for a solo affiliate marketer.
+
+Product data:
+${JSON.stringify(createProductPromptPayload(product), null, 2)}
+      `.trim(),
+    });
+
+    return {
+      data: normalizeAnalysis(raw, fallback),
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini product analysis failed:", error);
+
+    return {
+      data: fallback,
+      mode: "fallback",
+      warning:
+        "Gemini analysis failed, so the local fallback analyzer was used.",
+    };
+  }
+}
+
+function createFallbackCampaignDrafts(
+  product: AffiliateProductInput
+): CampaignDraft[] {
+  const name = product.name || "the product";
+
+  const risks = [
+    "Verify product details before publishing.",
+    "Avoid guarantees, exaggerated claims, and false urgency.",
+  ];
+
+  return [
+    {
+      platform: "instagram",
+      format: "carousel",
+      title: `${name}: what to know before deciding`,
+      hook: `Thinking about ${name}? Start with these key questions.`,
+      caption: `Before buying ${name}, check what the offer includes, who it is designed for, and whether it matches your actual goal.`,
+      script: "",
+      hashtags: ["AffiliateMarketing", "DigitalProducts", "SmartBuying"],
+      callToAction: "Review the details and decide whether it fits your goal.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "facebook",
+      format: "text_post",
+      title: `A simple breakdown of ${name}`,
+      hook: `Not every product is right for everyone.`,
+      caption: `Before deciding, understand the offer, compare the value with the price, and review the full product information.`,
+      script: "",
+      hashtags: ["AffiliateMarketing", "DigitalSkills", "OnlineBusiness"],
+      callToAction: "Send a message if you need a simple breakdown.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "tiktok",
+      format: "short_video",
+      title: `${name}: beginner breakdown`,
+      hook: `Before buying ${name}, check these three things.`,
+      caption: `A short checklist to help you make an informed decision.`,
+      script: `Opening: Before buying ${name}, check these three things.\n\n1. What exactly does the offer include?\n2. Is it suitable for your current goal?\n3. Does the value justify the price?\n\nClosing: Review the full details before deciding.`,
+      hashtags: ["TikTokTips", "DigitalProducts", "AffiliateMarketing"],
+      callToAction: "Check the details if it fits your goal.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "youtube",
+      format: "short_video",
+      title: `${name}: three questions to ask`,
+      hook: `Ask these questions before deciding whether ${name} is right for you.`,
+      caption: `A quick buyer checklist for anyone considering ${name}.`,
+      script: `Question 1: What problem does the offer address?\nQuestion 2: What will you receive?\nQuestion 3: Does it fit your goal?\n\nReview the details before purchasing.`,
+      hashtags: ["YouTubeShorts", "DigitalProducts", "AffiliateMarketing"],
+      callToAction: "Review the offer details before deciding.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "telegram",
+      format: "text_post",
+      title: `${name}: quick product note`,
+      hook: `Here is a quick checklist for anyone considering ${name}.`,
+      caption: `Confirm what the offer includes, who it is for, and whether it aligns with your goal before purchasing.`,
+      script: "",
+      hashtags: ["DigitalProducts", "AffiliateMarketing"],
+      callToAction: "Open the link to review the full details.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "pinterest",
+      format: "pin",
+      title: `${name} decision checklist`,
+      hook: `Save this checklist before reviewing ${name}.`,
+      caption: `Understand the offer, check audience fit, compare price and value, then verify the details before deciding.`,
+      script: "",
+      hashtags: ["DigitalProducts", "OnlineBusiness", "SmartBuying"],
+      callToAction: "Save this checklist and review the full details.",
+      riskNotes: risks,
+    },
+
+    {
+      platform: "x",
+      format: "thread",
+      title: `${name}: buyer checklist`,
+      hook: `Before buying ${name}, ask these simple questions.`,
+      caption: `1. What does the product include?\n2. Who is it for?\n3. Does it match your goal?\n4. Is the offer clear?\n5. Have you reviewed the full details?`,
+      script: "",
+      hashtags: ["AffiliateMarketing", "DigitalProducts"],
+      callToAction: "Review the product details before deciding.",
+      riskNotes: risks,
+    },
+  ];
+}
+
+function normalizeCampaignDraft(
+  raw: Partial<CampaignDraft>,
+  fallback: CampaignDraft
+): CampaignDraft {
+  return {
+    platform: isPlatform(raw.platform) ? raw.platform : fallback.platform,
+
+    format: isFormat(raw.format) ? raw.format : fallback.format,
+
+    title: cleanString(raw.title, fallback.title),
+
+    hook: cleanString(raw.hook, fallback.hook),
+
+    caption: cleanString(raw.caption, fallback.caption),
+
+    script: cleanString(raw.script, fallback.script),
+
+    hashtags: cleanStringArray(raw.hashtags, fallback.hashtags),
+
+    callToAction: cleanString(raw.callToAction, fallback.callToAction),
+
+    riskNotes: cleanStringArray(raw.riskNotes, fallback.riskNotes),
+  };
+}
+
+export async function generateCampaignDrafts(
+  product: AffiliateProductInput
+): Promise<AiResult<CampaignDraft[]>> {
+  const fallbackPosts = createFallbackCampaignDrafts(product);
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallbackPosts,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw = await requestStructuredJson<{
+      posts?: Array<Partial<CampaignDraft>>;
+    }>({
+      schema: campaignSchema,
+
+      prompt: `
+You are an ethical affiliate-marketing content strategist.
+
+Create exactly seven platform-specific campaign drafts using only the product
+data supplied below.
+
+Required platforms:
+instagram, facebook, tiktok, youtube, telegram, pinterest, x
+
+Rules:
+- Make each platform post meaningfully different.
+- Use an education-first approach.
+- Do not invent product features.
+- Do not promise guaranteed income or guaranteed results.
+- Avoid false urgency and misleading claims.
+- TikTok and YouTube must include a useful short-video script.
+- Hashtags must not include the # symbol.
+
+Product data:
+${JSON.stringify(createProductPromptPayload(product), null, 2)}
+      `.trim(),
+    });
+
+    const rawPosts = Array.isArray(raw.posts) ? raw.posts : [];
+
+    const mergedPosts = fallbackPosts.map((fallback) => {
+      const matchingPost = rawPosts.find(
+        (post) => post.platform === fallback.platform
+      );
+
+      return matchingPost
+        ? normalizeCampaignDraft(matchingPost, fallback)
+        : fallback;
+    });
+
+    return {
+      data: mergedPosts,
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini campaign generation failed:", error);
+
+    return {
+      data: fallbackPosts,
+      mode: "fallback",
+      warning:
+        "Gemini campaign generation failed, so local fallback drafts were used.",
+    };
+  }
+}
+
+function createFallbackLeadReply(input: {
+  lead: LeadInput;
+  product?: AffiliateProductInput | null;
+}): LeadReplySuggestion {
+  const name =
+    input.lead.name || input.lead.username || "there";
+
+  const productName = input.product?.name || "the product";
+
+  return {
+    reply: `Hi ${name}, thanks for reaching out about ${productName}. I can share a clear breakdown of what the offer includes so you can decide whether it fits your goal. Please review the details carefully before making a decision.`,
+
+    followUpQuestion:
+      "What specific goal are you hoping the product will help you with?",
+
+    riskNotes: [
+      "Do not promise results.",
+      "Answer the lead’s question before sharing a link.",
+      "Avoid pressure tactics.",
+    ],
+  };
+}
+
+export async function generateLeadReply(input: {
+  lead: LeadInput;
+  product?: AffiliateProductInput | null;
+}): Promise<AiResult<LeadReplySuggestion>> {
+  const fallback = createFallbackLeadReply(input);
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallback,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw = await requestStructuredJson<Partial<LeadReplySuggestion>>({
+      schema: leadReplySchema,
+
+      prompt: `
+You are an ethical affiliate-marketing support assistant.
+
+Write a concise, professional reply to the lead using only the information
+provided below.
+
+Rules:
+- Be helpful and conversational.
+- Address the lead's question when possible.
+- Do not invent facts about the product.
+- Do not pressure the lead.
+- Do not promise income or guaranteed results.
+- Include one useful follow-up question.
+
+Lead and product data:
+${JSON.stringify(
+  {
+    lead: {
+      name: input.lead.name || "",
+      username: input.lead.username || "",
+      platform: input.lead.platform || "",
+      source: input.lead.source || "",
+      message: input.lead.message || "",
+      notes: input.lead.notes || "",
+      interestLevel: input.lead.interestLevel || 1,
+      status: input.lead.status || "new",
+    },
+    product: createProductPromptPayload(input.product || {}),
+  },
+  null,
+  2
+)}
+      `.trim(),
+    });
+
+    return {
+      data: {
+        reply: cleanString(raw.reply, fallback.reply),
+
+        followUpQuestion: cleanString(
+          raw.followUpQuestion,
+          fallback.followUpQuestion
+        ),
+
+        riskNotes: cleanStringArray(raw.riskNotes, fallback.riskNotes),
+      },
+
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini lead reply generation failed:", error);
+
+    return {
+      data: fallback,
+      mode: "fallback",
+      warning:
+        "Gemini lead reply generation failed, so a local fallback reply was used.",
+    };
+  }
+}
