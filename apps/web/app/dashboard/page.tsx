@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { AiStatusBadge } from "@/components/AiStatusBadge";
 
 type AnalyticsResponse = {
   ok: boolean;
@@ -248,14 +249,18 @@ export default function DashboardPage() {
               </p>
             </div>
 
-            <button
-              type="button"
-              onClick={fetchDashboard}
-              disabled={isLoading}
-              className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {isLoading ? "Refreshing..." : "Refresh dashboard"}
-            </button>
+            <div className="flex flex-col gap-3">
+  <AiStatusBadge />
+
+  <button
+    type="button"
+    onClick={fetchDashboard}
+    disabled={isLoading}
+    className="rounded-2xl border border-white/10 px-5 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+  >
+    {isLoading ? "Refreshing..." : "Refresh dashboard"}
+  </button>
+</div>
           </div>
         </header>
 

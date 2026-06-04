@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ReactNode, useState } from "react";
+import { AiStatusBadge } from "@/components/AiStatusBadge";
 
 type AppShellProps = {
   children: ReactNode;
@@ -122,6 +123,10 @@ function CurrentModeCard() {
       <p className="mt-2 text-sm leading-6 text-cyan-50">
         Manual publishing with analytics and lead tracking.
       </p>
+
+      <div className="mt-3">
+        <AiStatusBadge compact />
+      </div>
     </div>
   );
 }

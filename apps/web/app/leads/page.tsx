@@ -66,6 +66,19 @@ type LeadFormState = {
   status: Exclude<LeadStatus, "all">;
 };
 
+type AiReplySuggestion = {
+  reply: string;
+  followUpQuestion: string;
+  riskNotes: string[];
+};
+
+type AiReplyResponse = {
+  ok: boolean;
+  suggestion?: AiReplySuggestion;
+  aiMode?: "gemini" | "fallback";
+  warning?: string;
+  error?: string;
+};
 const initialFormState: LeadFormState = {
   affiliateProductId: "",
   platform: "other",
@@ -132,6 +145,20 @@ export default function LeadsPage() {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+
+  const [aiSuggestions, setAiSuggestions] = useState<
+  Record<string, AiReplySuggestion>
+>({});
+
+const [aiSuggestionModes, setAiSuggestionModes] = useState<
+  Record<string, string>
+>({});
+
+const [aiSuggestionWarnings, setAiSuggestionWarnings] = useState<
+  Record<string, string>
+>({});
+
+const [generatingReplyLeadId, setGeneratingReplyLeadId] = useState("");
 
   async function fetchLeads() {
     try {
@@ -321,6 +348,74 @@ export default function LeadsPage() {
             leads.length,
     };
   }, [leads]);
+
+  async function generateAiReply(leadId: string) {
+  try {
+    setGeneratingReplyLeadId(leadId);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const response = await fetch(`/api/leads/${leadId}/suggest-reply`, {
+      method: "POST",
+    });
+
+    const data = (await response.json()) as AiReplyResponse;
+
+    if (!data.ok || !data.suggestion) {
+      throw new Error(data.error || "Failed to generate AI reply");
+    }
+
+    setAiSuggestions((current) => ({
+      ...current,
+      [leadId]: data.suggestion as AiReplySuggestion,
+    }));
+
+    setAiSuggestionModes((current) => ({
+      ...current,
+      [leadId]: data.aiMode || "fallback",
+    }));
+
+    setAiSuggestionWarnings((current) => ({
+      ...current,
+      [leadId]: data.warning || "",
+    }));
+
+    setSuccessMessage(
+      data.aiMode === "gemini"
+        ? "Gemini reply generated successfully."
+        : "Fallback reply generated successfully."
+    );
+  } catch (error) {
+    setErrorMessage(
+      error instanceof Error ? error.message : "Something went wrong"
+    );
+  } finally {
+    setGeneratingReplyLeadId("");
+  }
+}
+
+async function copyAiReply(
+  suggestion: AiReplySuggestion,
+  includeFollowUp = false
+) {
+  try {
+    const text = includeFollowUp
+      ? `${suggestion.reply}\n\n${suggestion.followUpQuestion}`
+      : suggestion.reply;
+
+    await navigator.clipboard.writeText(text);
+
+    setSuccessMessage(
+      includeFollowUp
+        ? "AI reply and follow-up question copied."
+        : "AI reply copied."
+    );
+
+    setErrorMessage("");
+  } catch {
+    setErrorMessage("Could not copy AI reply.");
+  }
+}
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -754,6 +849,110 @@ export default function LeadsPage() {
                         </p>
                       </div>
                     )}
+
+                    <div className="mt-4 rounded-2xl border border-violet-400/20 bg-violet-500/10 p-4">
+  <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+    <div>
+      <p className="text-sm font-bold text-violet-100">
+        AI reply assistant
+      </p>
+
+      <p className="mt-1 text-xs leading-5 text-violet-200/80">
+        Generate a professional reply based on this lead&apos;s question and
+        attached product.
+      </p>
+    </div>
+
+    <button
+      type="button"
+      onClick={() => generateAiReply(lead._id)}
+      disabled={generatingReplyLeadId === lead._id}
+      className="rounded-xl bg-violet-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-violet-300 disabled:cursor-not-allowed disabled:opacity-60"
+    >
+      {generatingReplyLeadId === lead._id
+        ? "Generating..."
+        : aiSuggestions[lead._id]
+          ? "Regenerate reply"
+          : "Generate AI reply"}
+    </button>
+  </div>
+
+  {aiSuggestions[lead._id] && (
+    <div className="mt-4 grid gap-3">
+      <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-200">
+            Suggested reply
+          </p>
+
+          <span
+            className={`rounded-full px-2 py-1 text-[10px] font-bold ${
+              aiSuggestionModes[lead._id] === "gemini"
+                ? "bg-emerald-400/10 text-emerald-300"
+                : "bg-amber-400/10 text-amber-300"
+            }`}
+          >
+            {aiSuggestionModes[lead._id] === "gemini"
+              ? "Gemini"
+              : "Fallback"}
+          </span>
+        </div>
+
+        <p className="mt-3 whitespace-pre-line text-sm leading-6 text-slate-200">
+          {aiSuggestions[lead._id].reply}
+        </p>
+      </div>
+
+      <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+        <p className="text-xs font-bold uppercase tracking-[0.2em] text-violet-200">
+          Follow-up question
+        </p>
+
+        <p className="mt-3 text-sm leading-6 text-slate-200">
+          {aiSuggestions[lead._id].followUpQuestion}
+        </p>
+      </div>
+
+      {aiSuggestions[lead._id].riskNotes.length > 0 && (
+        <div className="rounded-xl border border-amber-400/20 bg-amber-500/10 p-3">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-200">
+            Reply notes
+          </p>
+
+          <ul className="mt-2 list-inside list-disc space-y-1 text-xs leading-5 text-amber-100">
+            {aiSuggestions[lead._id].riskNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {aiSuggestionWarnings[lead._id] && (
+        <p className="text-xs leading-5 text-amber-200">
+          {aiSuggestionWarnings[lead._id]}
+        </p>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onClick={() => copyAiReply(aiSuggestions[lead._id])}
+          className="rounded-xl bg-violet-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-violet-300"
+        >
+          Copy reply
+        </button>
+
+        <button
+          type="button"
+          onClick={() => copyAiReply(aiSuggestions[lead._id], true)}
+          className="rounded-xl border border-violet-400/20 bg-violet-400/10 px-4 py-2 text-xs font-bold text-violet-200 transition hover:bg-violet-400/20"
+        >
+          Copy reply + follow-up
+        </button>
+      </div>
+    </div>
+  )}
+</div>
 
                     <p className="mt-4 text-xs text-slate-500">
                       Added: {formatDate(lead.createdAt)}
