@@ -79,7 +79,7 @@ function SidebarLinks({
   }
 
   return (
-    <nav className="mt-6 grid gap-2">
+    <nav className="grid gap-2">
       {navigationItems.map((item) => {
         const isActive = isActiveRoute(item.href);
 
@@ -112,11 +112,26 @@ function SidebarLinks({
   );
 }
 
+function CurrentModeCard() {
+  return (
+    <div className="mt-4 shrink-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
+      <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
+        Current mode
+      </p>
+
+      <p className="mt-2 text-sm leading-6 text-cyan-50">
+        Manual publishing with analytics and lead tracking.
+      </p>
+    </div>
+  );
+}
+
 export function AppShell({ children }: AppShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
+      {/* Mobile header */}
       <header className="fixed inset-x-0 top-0 z-40 flex h-16 items-center justify-between border-b border-white/10 bg-slate-950/95 px-5 backdrop-blur lg:hidden">
         <Link href="/dashboard" className="font-black tracking-tight">
           AffiliatePilot <span className="text-cyan-300">AI</span>
@@ -132,8 +147,9 @@ export function AppShell({ children }: AppShellProps) {
         </button>
       </header>
 
-      <aside className="fixed inset-y-0 left-0 z-30 hidden w-72 border-r border-white/10 bg-slate-950 px-4 py-6 lg:block">
-        <Link href="/dashboard" className="block px-2">
+      {/* Desktop sidebar */}
+      <aside className="fixed inset-y-0 left-0 z-30 hidden h-screen w-72 flex-col overflow-hidden border-r border-white/10 bg-slate-950 px-4 py-6 lg:flex">
+        <Link href="/dashboard" className="block shrink-0 px-2">
           <p className="text-lg font-black tracking-tight">
             AffiliatePilot <span className="text-cyan-300">AI</span>
           </p>
@@ -143,19 +159,14 @@ export function AppShell({ children }: AppShellProps) {
           </p>
         </Link>
 
-        <SidebarLinks />
-
-        <div className="absolute bottom-5 left-4 right-4 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
-            Current mode
-          </p>
-
-          <p className="mt-2 text-sm leading-6 text-cyan-50">
-            Manual publishing with analytics and lead tracking.
-          </p>
+        <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+          <SidebarLinks />
         </div>
+
+        <CurrentModeCard />
       </aside>
 
+      {/* Mobile drawer */}
       {isMobileMenuOpen && (
         <div className="fixed inset-0 z-50 lg:hidden">
           <button
@@ -165,8 +176,8 @@ export function AppShell({ children }: AppShellProps) {
             className="absolute inset-0 bg-black/70"
           />
 
-          <aside className="absolute inset-y-0 left-0 w-[88%] max-w-sm overflow-y-auto border-r border-white/10 bg-slate-950 p-5 shadow-2xl">
-            <div className="flex items-center justify-between">
+          <aside className="absolute inset-y-0 left-0 flex h-screen w-[88%] max-w-sm flex-col overflow-hidden border-r border-white/10 bg-slate-950 p-5 shadow-2xl">
+            <div className="flex shrink-0 items-center justify-between">
               <Link
                 href="/dashboard"
                 onClick={() => setIsMobileMenuOpen(false)}
@@ -184,11 +195,16 @@ export function AppShell({ children }: AppShellProps) {
               </button>
             </div>
 
-            <SidebarLinks onNavigate={() => setIsMobileMenuOpen(false)} />
+            <div className="mt-6 min-h-0 flex-1 overflow-y-auto pr-1">
+              <SidebarLinks onNavigate={() => setIsMobileMenuOpen(false)} />
+            </div>
+
+            <CurrentModeCard />
           </aside>
         </div>
       )}
 
+      {/* Page content */}
       <div className="min-h-screen pt-16 lg:pl-72 lg:pt-0">{children}</div>
     </div>
   );
