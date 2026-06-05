@@ -42,6 +42,7 @@ const MediaAssetSchema = new Schema(
     sizeBytes: {
       type: Number,
       default: 0,
+      min: 0,
     },
 
     title: {
@@ -71,6 +72,47 @@ const MediaAssetSchema = new Schema(
       default: "uploaded",
       index: true,
     },
+
+    storageProvider: {
+      type: String,
+      enum: ["cloudinary", "local"],
+      default: "cloudinary",
+      index: true,
+    },
+
+    cloudinaryPublicId: {
+      type: String,
+      default: "",
+      index: true,
+    },
+
+    cloudinaryAssetId: {
+      type: String,
+      default: "",
+    },
+
+    cloudinaryResourceType: {
+      type: String,
+      enum: ["image", "video", "raw"],
+      default: "image",
+    },
+
+    cloudinaryFormat: {
+      type: String,
+      default: "",
+    },
+
+    width: {
+      type: Number,
+    },
+
+    height: {
+      type: Number,
+    },
+
+    duration: {
+      type: Number,
+    },
   },
   {
     timestamps: true,
@@ -80,4 +122,5 @@ const MediaAssetSchema = new Schema(
 export type MediaAsset = InferSchemaType<typeof MediaAssetSchema>;
 
 export const MediaAssetModel =
-  mongoose.models.MediaAsset || mongoose.model("MediaAsset", MediaAssetSchema);
+  mongoose.models.MediaAsset ||
+  mongoose.model("MediaAsset", MediaAssetSchema);

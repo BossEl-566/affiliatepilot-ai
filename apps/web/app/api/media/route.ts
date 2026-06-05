@@ -1,77 +1,71 @@
-import { randomUUID } from "crypto";
-import path from "path";
-import { mkdir, writeFile } from "fs/promises";
 import mongoose from "mongoose";
 import { connectToDatabase } from "@/lib/mongodb";
 import { MediaAssetModel } from "@/models/MediaAsset";
+import { uploadMediaBuffer } from "@/lib/cloudinary";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024; // 50MB
-
-function getMediaType(mimeType: string) {
-  if (mimeType.startsWith("image/")) return "image";
-  if (mimeType.startsWith("video/")) return "video";
-  if (mimeType === "application/pdf") return "document";
-
-  return "unknown";
-}
-
-function getFileExtension(fileName: string) {
-  const extension = path.extname(fileName).toLowerCase();
-
-  if (extension) return extension;
-
-  return "";
-}
+const MAX_UPLOAD_BYTES = 25 * 1024 * 1024;
 
 function isValidObjectId(id: string) {
   return mongoose.Types.ObjectId.isValid(id);
 }
 
-function createSuggestedCaption(input: {
-  title?: string;
-  mediaType: string;
-  originalFileName: string;
-}) {
-  const title = input.title || input.originalFileName;
+function getText(formData: FormData, key: string) {
+  const value = formData.get(key);
 
-  if (input.mediaType === "video") {
-    return `Here is a quick breakdown from this video: ${title}. Watch it, understand the value, and only take action if it fits your goal.`;
-  }
-
-  if (input.mediaType === "image") {
-    return `A quick visual breakdown: ${title}. Save this and review the details before making a decision.`;
-  }
-
-  return `Resource uploaded: ${title}. Review the details and use it as part of your campaign.`;
+  return typeof value === "string" ? value.trim() : "";
 }
 
-function createSuggestedHashtags(mediaType: string) {
-  const base = ["AffiliateMarketing", "DigitalSkills", "OnlineBusiness"];
+function normalizeResourceType(value?: string) {
+  if (value === "video" || value === "raw") return value;
 
-  if (mediaType === "video") {
-    base.push("ShortVideo", "ContentMarketing");
+  return "image";
+}
+
+function determineMediaType(input: {
+  mimeType: string;
+  resourceType: "image" | "video" | "raw";
+}) {
+  if (input.mimeType.startsWith("image/")) return "image";
+  if (input.mimeType.startsWith("video/")) return "video";
+
+  if (
+    input.mimeType === "application/pdf" ||
+    input.resourceType === "raw"
+  ) {
+    return "document";
   }
 
-  if (mediaType === "image") {
-    base.push("VisualMarketing", "SocialMediaMarketing");
-  }
-
-  return base;
+  return "unknown";
 }
 
 export async function GET(request: Request) {
   try {
     await connectToDatabase();
 
-    const { searchParams } = new URL(request.url);
-    const productId = searchParams.get("productId");
+    const url = new URL(request.url);
+    const productId = url.searchParams.get("productId");
 
-    const query =
-      productId && isValidObjectId(productId)
-        ? { affiliateProductId: productId }
-        : {};
+    if (productId && !isValidObjectId(productId)) {
+      return Response.json(
+        {
+          ok: false,
+          error: "Invalid product ID.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const query = productId
+      ? {
+          affiliateProductId: productId,
+          status: { $ne: "archived" },
+        }
+      : {
+          status: { $ne: "archived" },
+        };
 
     const mediaAssets = await MediaAssetModel.find(query)
       .sort({ createdAt: -1 })
@@ -100,32 +94,68 @@ export async function POST(request: Request) {
 
     const formData = await request.formData();
 
-    const file = formData.get("file");
-    const title = String(formData.get("title") || "");
-    const description = String(formData.get("description") || "");
-    const affiliateProductId = String(formData.get("affiliateProductId") || "");
+    const fileValue = formData.get("file");
 
-    if (!(file instanceof File)) {
+    if (!(fileValue instanceof File)) {
       return Response.json(
         {
           ok: false,
-          error: "File is required.",
+          error: "Select an image, video, or PDF file.",
         },
         { status: 400 }
       );
     }
 
-    if (file.size > MAX_FILE_SIZE_BYTES) {
+    if (fileValue.size <= 0) {
       return Response.json(
         {
           ok: false,
-          error: "File is too large. Maximum size is 50MB for now.",
+          error: "The selected file is empty.",
         },
         { status: 400 }
       );
     }
 
-    if (affiliateProductId && !isValidObjectId(affiliateProductId)) {
+    if (fileValue.size > MAX_UPLOAD_BYTES) {
+      return Response.json(
+        {
+          ok: false,
+          error: "File is too large. Use a file smaller than 25 MB.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const allowedMimeTypes = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "image/gif",
+      "video/mp4",
+      "video/webm",
+      "video/quicktime",
+      "application/pdf",
+    ];
+
+    if (!allowedMimeTypes.includes(fileValue.type)) {
+      return Response.json(
+        {
+          ok: false,
+          error:
+            "Unsupported file type. Upload JPG, PNG, WEBP, GIF, MP4, WEBM, MOV, or PDF.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const affiliateProductId =
+      getText(formData, "affiliateProductId") ||
+      getText(formData, "productId");
+
+    if (
+      affiliateProductId &&
+      !isValidObjectId(affiliateProductId)
+    ) {
       return Response.json(
         {
           ok: false,
@@ -135,50 +165,41 @@ export async function POST(request: Request) {
       );
     }
 
-    const mimeType = file.type || "application/octet-stream";
-    const mediaType = getMediaType(mimeType);
+    const buffer = Buffer.from(await fileValue.arrayBuffer());
 
-    if (mediaType === "unknown") {
-      return Response.json(
-        {
-          ok: false,
-          error: "Unsupported file type. Upload an image, video, or PDF.",
-        },
-        { status: 400 }
-      );
-    }
+    const uploadResult = await uploadMediaBuffer(
+      buffer,
+      fileValue.name
+    );
 
-    const extension = getFileExtension(file.name);
-    const storedFileName = `${randomUUID()}${extension}`;
-    const uploadDir = path.join(process.cwd(), "public", "uploads");
-    const filePath = path.join(uploadDir, storedFileName);
-
-    await mkdir(uploadDir, { recursive: true });
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-
-    await writeFile(filePath, buffer);
-
-    const fileUrl = `/uploads/${storedFileName}`;
+    const cloudinaryResourceType = normalizeResourceType(
+      uploadResult.resource_type
+    );
 
     const mediaAsset = await MediaAssetModel.create({
       affiliateProductId: affiliateProductId || undefined,
-      originalFileName: file.name,
-      storedFileName,
-      fileUrl,
-      mediaType,
-      mimeType,
-      sizeBytes: file.size,
-      title,
-      description,
-      suggestedCaption: createSuggestedCaption({
-        title,
-        mediaType,
-        originalFileName: file.name,
+      originalFileName: fileValue.name,
+      storedFileName: uploadResult.public_id,
+      fileUrl: uploadResult.secure_url,
+      mediaType: determineMediaType({
+        mimeType: fileValue.type,
+        resourceType: cloudinaryResourceType,
       }),
-      suggestedHashtags: createSuggestedHashtags(mediaType),
+      mimeType: fileValue.type,
+      sizeBytes: fileValue.size,
+      title: getText(formData, "title") || fileValue.name,
+      description: getText(formData, "description"),
+      suggestedCaption: "",
+      suggestedHashtags: [],
       status: affiliateProductId ? "attached" : "uploaded",
+      storageProvider: "cloudinary",
+      cloudinaryPublicId: uploadResult.public_id,
+      cloudinaryAssetId: uploadResult.asset_id || "",
+      cloudinaryResourceType,
+      cloudinaryFormat: uploadResult.format || "",
+      width: uploadResult.width,
+      height: uploadResult.height,
+      duration: uploadResult.duration,
     });
 
     return Response.json(
