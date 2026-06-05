@@ -114,6 +114,14 @@ function SidebarLinks({
 }
 
 function CurrentModeCard() {
+  async function handleLogout() {
+    await fetch("/api/auth/logout", {
+      method: "POST",
+    });
+
+    window.location.href = "/login";
+  }
+
   return (
     <div className="mt-4 shrink-0 rounded-2xl border border-cyan-400/20 bg-cyan-400/10 p-4">
       <p className="text-xs font-bold uppercase tracking-[0.2em] text-cyan-200">
@@ -127,12 +135,25 @@ function CurrentModeCard() {
       <div className="mt-3">
         <AiStatusBadge compact />
       </div>
+
+      <button
+        type="button"
+        onClick={handleLogout}
+        className="mt-3 w-full rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-xs font-bold text-white transition hover:bg-white/15"
+      >
+        Sign out
+      </button>
     </div>
   );
 }
 
 export function AppShell({ children }: AppShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const pathname = usePathname();
+
+if (pathname === "/login") {
+  return <>{children}</>;
+}
 
   return (
     <div className="min-h-screen bg-slate-950 text-white">
