@@ -10,6 +10,7 @@ function isPublicPath(pathname: string) {
     pathname === "/r" ||
     pathname.startsWith("/r/") ||
     pathname === "/api/health" ||
+    pathname === "/api/cron/publish-telegram" ||
     pathname.startsWith("/api/auth/")
   );
 }

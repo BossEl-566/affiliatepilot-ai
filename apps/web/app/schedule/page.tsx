@@ -457,6 +457,17 @@ export default function SchedulePage() {
                         </p>
                       </div>
                     </div>
+                    {post.telegramError && (
+  <div className="mt-4 rounded-2xl border border-red-400/20 bg-red-500/10 p-3">
+    <p className="text-xs font-bold uppercase tracking-[0.2em] text-red-200">
+      Telegram publishing error
+    </p>
+
+    <p className="mt-2 text-sm leading-6 text-red-100">
+      {post.telegramError}
+    </p>
+  </div>
+)}
 
                     {post.caption && (
                       <p className="mt-4 line-clamp-4 text-sm leading-6 text-slate-300">

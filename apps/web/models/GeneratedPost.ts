@@ -110,6 +110,14 @@ telegramError: {
   type: String,
   default: "",
 },
+telegramPublishingLock: {
+  type: String,
+  default: "",
+},
+
+telegramPublishingStartedAt: {
+  type: Date,
+},
 
     platformPostId: {
       type: String,
