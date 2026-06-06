@@ -93,6 +93,23 @@ const GeneratedPostSchema = new Schema(
     publishedAt: {
       type: Date,
     },
+    telegramMessageId: {
+  type: Number,
+},
+
+telegramChatId: {
+  type: String,
+  default: "",
+},
+
+telegramPublishedAt: {
+  type: Date,
+},
+
+telegramError: {
+  type: String,
+  default: "",
+},
 
     platformPostId: {
       type: String,

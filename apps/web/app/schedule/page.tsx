@@ -34,6 +34,10 @@ type GeneratedPost = {
   scheduledAt?: string;
   publishedAt?: string;
   createdAt?: string;
+  telegramMessageId?: number;
+telegramChatId?: string;
+telegramPublishedAt?: string;
+telegramError?: string;
   affiliateProduct?: {
     _id: string;
     name: string;
@@ -91,6 +95,8 @@ export default function SchedulePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [publishingTelegramPostId, setPublishingTelegramPostId] =
+  useState("");
 
   async function fetchPosts() {
     try {
@@ -186,6 +192,43 @@ export default function SchedulePage() {
 
     return parts.filter(Boolean).join("\n\n");
   }
+
+  async function publishToTelegram(post: GeneratedPost) {
+  const confirmed = window.confirm(
+    `Publish "${post.title || "Untitled post"}" to your Telegram channel now?`
+  );
+
+  if (!confirmed) return;
+
+  try {
+    setPublishingTelegramPostId(post._id);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const response = await fetch(
+      `/api/posts/${post._id}/publish/telegram`,
+      {
+        method: "POST",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      throw new Error(data.error || "Failed to publish to Telegram");
+    }
+
+    setSuccessMessage("Post published to Telegram successfully.");
+
+    await fetchPosts();
+  } catch (error) {
+    setErrorMessage(
+      error instanceof Error ? error.message : "Something went wrong"
+    );
+  } finally {
+    setPublishingTelegramPostId("");
+  }
+}
 
   return (
     <main className="min-h-screen bg-slate-950 text-white">
@@ -364,6 +407,24 @@ export default function SchedulePage() {
                         >
                           Edit
                         </Link>
+
+                        {post.platform === "telegram" && (
+  <button
+    type="button"
+    onClick={() => publishToTelegram(post)}
+    disabled={
+      publishingTelegramPostId === post._id ||
+      (post.status !== "approved" && post.status !== "scheduled")
+    }
+    className="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-300 disabled:cursor-not-allowed disabled:opacity-50"
+  >
+    {publishingTelegramPostId === post._id
+      ? "Publishing..."
+      : post.status === "published"
+        ? "Published"
+        : "Publish to Telegram"}
+  </button>
+)}
 
                         <button
                           type="button"
