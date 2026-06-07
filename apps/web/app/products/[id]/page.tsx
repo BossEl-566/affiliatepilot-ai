@@ -34,6 +34,19 @@ type AffiliateProduct = {
   status: ProductStatus;
   createdAt?: string;
   updatedAt?: string;
+  landingPageEnabled?: boolean;
+landingHeadline?: string;
+landingSubheadline?: string;
+landingBenefits?: string[];
+landingWhoItsFor?: string[];
+landingFaq?: Array<{
+  question: string;
+  answer: string;
+}>;
+landingCtaLabel?: string;
+landingDisclosure?: string;
+landingLastGeneratedAt?: string;
+landingGenerationMode?: "gemini" | "fallback" | "";
 };
 
 type ProductFormState = {
@@ -203,6 +216,8 @@ export default function ProductDetailsPage() {
 
   const [errorMessage, setErrorMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [isGeneratingLandingPage, setIsGeneratingLandingPage] =
+  useState(false);
 
   const trackingLink =
     product?.trackingCode && origin
@@ -473,6 +488,48 @@ async function copyPostTrackingLink(post: GeneratedPost) {
       setIsDeleting(false);
     }
   }
+
+  async function handleGenerateLandingPage() {
+  try {
+    setIsGeneratingLandingPage(true);
+    setErrorMessage("");
+    setSuccessMessage("");
+
+    const response = await fetch(
+      `/api/products/${params.id}/generate-landing-page`,
+      {
+        method: "POST",
+      }
+    );
+
+    const data = await response.json();
+
+    if (!data.ok) {
+      throw new Error(
+        data.error || "Failed to generate landing page"
+      );
+    }
+
+    const updatedProduct = data.product as AffiliateProduct;
+
+    setProduct(updatedProduct);
+    setForm(createFormState(updatedProduct));
+
+    setSuccessMessage(
+      data.aiMode === "gemini"
+        ? "Gemini landing page generated successfully."
+        : "Fallback landing page generated successfully."
+    );
+  } catch (error) {
+    setErrorMessage(
+      error instanceof Error
+        ? error.message
+        : "Something went wrong"
+    );
+  } finally {
+    setIsGeneratingLandingPage(false);
+  }
+}
 
   if (isLoading) {
     return (
@@ -964,6 +1021,19 @@ async function copyPostTrackingLink(post: GeneratedPost) {
             <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
               <h2 className="text-lg font-semibold">Quick actions</h2>
 
+              <button
+  type="button"
+  onClick={handleGenerateLandingPage}
+  disabled={isGeneratingLandingPage}
+  className="rounded-2xl border border-white/10 px-4 py-3 text-sm font-bold text-white transition hover:border-cyan-400 hover:text-cyan-300 disabled:cursor-not-allowed disabled:opacity-60"
+>
+  {isGeneratingLandingPage
+    ? "Generating landing page..."
+    : product.landingPageEnabled
+      ? "Regenerate landing page"
+      : "Generate landing page"}
+</button>
+
               <div className="mt-4 grid gap-3">
                 <button
                   onClick={handleAnalyzeProduct}
@@ -1091,6 +1161,43 @@ async function copyPostTrackingLink(post: GeneratedPost) {
                   </p>
                 </div>
               </div>
+
+              {product.landingPageEnabled && product.trackingCode && (
+  <div className="rounded-3xl border border-emerald-400/20 bg-emerald-500/10 p-5">
+    <h2 className="text-lg font-semibold text-emerald-100">
+      Public offer page
+    </h2>
+
+    <p className="mt-3 break-all text-xs leading-5 text-emerald-50">
+      {origin}/offer/{product.trackingCode}
+    </p>
+
+    <div className="mt-4 flex flex-wrap gap-2">
+      <a
+        href={`/offer/${product.trackingCode}`}
+        target="_blank"
+        rel="noreferrer"
+        className="rounded-xl bg-emerald-400 px-4 py-2 text-xs font-bold text-slate-950 transition hover:bg-emerald-300"
+      >
+        Open page
+      </a>
+
+      <button
+        type="button"
+        onClick={async () => {
+          await navigator.clipboard.writeText(
+            `${origin}/offer/${product.trackingCode}`
+          );
+
+          setSuccessMessage("Public offer-page link copied.");
+        }}
+        className="rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-bold text-emerald-100 transition hover:bg-emerald-400/20"
+      >
+        Copy link
+      </button>
+    </div>
+  </div>
+)}
             </div>
           </aside>
         </section>

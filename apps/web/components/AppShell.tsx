@@ -156,7 +156,11 @@ export function AppShell({ children }: AppShellProps) {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const pathname = usePathname();
 
-if (pathname === "/login") {
+if (
+  pathname === "/login" ||
+  pathname === "/offer" ||
+  pathname.startsWith("/offer/")
+) {
   return <>{children}</>;
 }
 

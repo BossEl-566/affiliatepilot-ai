@@ -1080,3 +1080,245 @@ ${JSON.stringify(createProductPromptPayload(product), null, 2)}
     };
   }
 }
+export type ProductLandingPageContent = {
+  headline: string;
+  subheadline: string;
+  benefits: string[];
+  whoItsFor: string[];
+  faq: Array<{
+    question: string;
+    answer: string;
+  }>;
+  ctaLabel: string;
+};
+
+const productLandingPageSchema = {
+  type: "object",
+  properties: {
+    headline: {
+      type: "string",
+    },
+
+    subheadline: {
+      type: "string",
+    },
+
+    benefits: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      minItems: 3,
+      maxItems: 6,
+    },
+
+    whoItsFor: {
+      type: "array",
+      items: {
+        type: "string",
+      },
+      minItems: 3,
+      maxItems: 6,
+    },
+
+    faq: {
+      type: "array",
+      minItems: 3,
+      maxItems: 6,
+      items: {
+        type: "object",
+        properties: {
+          question: {
+            type: "string",
+          },
+
+          answer: {
+            type: "string",
+          },
+        },
+        required: ["question", "answer"],
+      },
+    },
+
+    ctaLabel: {
+      type: "string",
+    },
+  },
+
+  required: [
+    "headline",
+    "subheadline",
+    "benefits",
+    "whoItsFor",
+    "faq",
+    "ctaLabel",
+  ],
+};
+
+function createFallbackProductLandingPage(
+  product: AffiliateProductInput
+): ProductLandingPageContent {
+  const name = product.name || "This product";
+
+  return {
+    headline: `Is ${name} suitable for your goal?`,
+
+    subheadline:
+      "Review the product details, understand what the offer is designed to provide, and make an informed decision.",
+
+    benefits: [
+      "Review the offer before making a purchasing decision.",
+      "Understand whether the product aligns with your current goal.",
+      "Consider the value, price, and product details carefully.",
+      "Ask questions when any part of the offer is unclear.",
+    ],
+
+    whoItsFor: [
+      "People who want to review the offer before purchasing.",
+      "People looking for a clear product breakdown.",
+      "People comparing digital-product options carefully.",
+    ],
+
+    faq: [
+      {
+        question: "What should I check before purchasing?",
+        answer:
+          "Review the product details, price, intended audience, and what is included in the offer before deciding.",
+      },
+
+      {
+        question: "Is this suitable for everyone?",
+        answer:
+          "Not necessarily. Consider your specific goal and review the full product information carefully.",
+      },
+
+      {
+        question: "Are results guaranteed?",
+        answer:
+          "No. Avoid any product promotion that guarantees results. Review the offer and decide whether it is suitable for your situation.",
+      },
+    ],
+
+    ctaLabel: "Review product details",
+  };
+}
+
+function cleanFaqItems(
+  value: unknown,
+  fallback: ProductLandingPageContent["faq"]
+) {
+  if (!Array.isArray(value)) return fallback;
+
+  const cleaned = value
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+
+      const candidate = item as {
+        question?: unknown;
+        answer?: unknown;
+      };
+
+      const question = cleanString(candidate.question);
+      const answer = cleanString(candidate.answer);
+
+      if (!question || !answer) return null;
+
+      return {
+        question,
+        answer,
+      };
+    })
+    .filter(
+      (
+        item
+      ): item is {
+        question: string;
+        answer: string;
+      } => Boolean(item)
+    )
+    .slice(0, 6);
+
+  return cleaned.length >= 3 ? cleaned : fallback;
+}
+
+function normalizeProductLandingPage(
+  raw: Partial<ProductLandingPageContent>,
+  fallback: ProductLandingPageContent
+): ProductLandingPageContent {
+  return {
+    headline: cleanString(raw.headline, fallback.headline),
+
+    subheadline: cleanString(
+      raw.subheadline,
+      fallback.subheadline
+    ),
+
+    benefits: cleanStringArray(raw.benefits, fallback.benefits).slice(
+      0,
+      6
+    ),
+
+    whoItsFor: cleanStringArray(
+      raw.whoItsFor,
+      fallback.whoItsFor
+    ).slice(0, 6),
+
+    faq: cleanFaqItems(raw.faq, fallback.faq),
+
+    ctaLabel: cleanString(raw.ctaLabel, fallback.ctaLabel),
+  };
+}
+
+export async function generateProductLandingPage(
+  product: AffiliateProductInput
+): Promise<AiResult<ProductLandingPageContent>> {
+  const fallback = createFallbackProductLandingPage(product);
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallback,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw =
+      await requestStructuredJson<Partial<ProductLandingPageContent>>({
+        schema: productLandingPageSchema,
+
+        prompt: `
+You are an ethical affiliate-marketing landing-page writer.
+
+Create a concise public landing page for the affiliate product below.
+
+Rules:
+- Use only the supplied product information.
+- Do not invent product features.
+- Do not promise income, guaranteed results, or instant success.
+- Do not use fake testimonials.
+- Do not use false urgency.
+- Use clear, simple wording.
+- Write for a buyer who needs enough information to decide whether to review
+  the product offer.
+- Keep the CTA factual and low-pressure.
+
+Product data:
+${JSON.stringify(createProductPromptPayload(product), null, 2)}
+        `.trim(),
+      });
+
+    return {
+      data: normalizeProductLandingPage(raw, fallback),
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini landing-page generation failed:", error);
+
+    return {
+      data: fallback,
+      mode: "fallback",
+      warning:
+        "Gemini landing-page generation failed, so a local fallback page was created.",
+    };
+  }
+}

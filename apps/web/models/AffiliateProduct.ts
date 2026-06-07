@@ -38,6 +38,75 @@ const AffiliateProductSchema = new Schema(
       trim: true,
       default: "",
     },
+    landingPageEnabled: {
+  type: Boolean,
+  default: false,
+  index: true,
+},
+
+landingHeadline: {
+  type: String,
+  default: "",
+  trim: true,
+},
+
+landingSubheadline: {
+  type: String,
+  default: "",
+  trim: true,
+},
+
+landingBenefits: {
+  type: [String],
+  default: [],
+},
+
+landingWhoItsFor: {
+  type: [String],
+  default: [],
+},
+
+landingFaq: {
+  type: [
+    {
+      question: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      answer: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+    },
+  ],
+  default: [],
+},
+
+landingCtaLabel: {
+  type: String,
+  default: "Review product details",
+  trim: true,
+},
+
+landingDisclosure: {
+  type: String,
+  default:
+    "Affiliate disclosure: I may earn a commission if you purchase through this link, at no additional cost to you.",
+  trim: true,
+},
+
+landingLastGeneratedAt: {
+  type: Date,
+},
+
+landingGenerationMode: {
+  type: String,
+  enum: ["gemini", "fallback", ""],
+  default: "",
+},
 
     targetAudience: {
       type: String,
