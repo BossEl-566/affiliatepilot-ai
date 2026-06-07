@@ -114,6 +114,22 @@ telegramPublishingLock: {
   type: String,
   default: "",
 },
+plannerBatchId: {
+  type: String,
+  default: "",
+  index: true,
+},
+
+plannerSource: {
+  type: String,
+  enum: ["manual", "telegram_weekly_plan"],
+  default: "manual",
+  index: true,
+},
+
+plannerGeneratedAt: {
+  type: Date,
+},
 
 telegramPublishingStartedAt: {
   type: Date,

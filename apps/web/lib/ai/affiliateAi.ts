@@ -823,3 +823,260 @@ ${JSON.stringify(
     };
   }
 }
+
+export type TelegramWeeklyPlanItem = {
+  dayNumber: number;
+  title: string;
+  hook: string;
+  caption: string;
+  hashtags: string[];
+  callToAction: string;
+  riskNotes: string[];
+};
+
+const telegramWeeklyPlanSchema = {
+  type: "object",
+  properties: {
+    posts: {
+      type: "array",
+      minItems: 7,
+      maxItems: 7,
+      items: {
+        type: "object",
+        properties: {
+          dayNumber: {
+            type: "integer",
+            minimum: 1,
+            maximum: 7,
+          },
+          title: {
+            type: "string",
+          },
+          hook: {
+            type: "string",
+          },
+          caption: {
+            type: "string",
+          },
+          hashtags: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+            minItems: 2,
+            maxItems: 6,
+          },
+          callToAction: {
+            type: "string",
+          },
+          riskNotes: {
+            type: "array",
+            items: {
+              type: "string",
+            },
+            minItems: 1,
+            maxItems: 4,
+          },
+        },
+        required: [
+          "dayNumber",
+          "title",
+          "hook",
+          "caption",
+          "hashtags",
+          "callToAction",
+          "riskNotes",
+        ],
+      },
+    },
+  },
+  required: ["posts"],
+};
+
+function createFallbackTelegramWeeklyPlan(
+  product: AffiliateProductInput
+): TelegramWeeklyPlanItem[] {
+  const name = product.name || "the product";
+
+  const riskNotes = [
+    "Verify product details before publishing.",
+    "Avoid guarantees, exaggerated claims, and false urgency.",
+  ];
+
+  return [
+    {
+      dayNumber: 1,
+      title: `${name}: a simple introduction`,
+      hook: `Before deciding whether ${name} fits your goal, start with the basics.`,
+      caption: `${name} may be useful for the right person, but the first step is understanding the offer clearly. Review what it includes, who it is designed for, and whether it matches your current goal.`,
+      hashtags: ["DigitalProducts", "AffiliateMarketing", "SmartBuying"],
+      callToAction: "Review the full details before making a decision.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 2,
+      title: `${name}: who is it for?`,
+      hook: `Not every product is suitable for everyone.`,
+      caption: `Before considering ${name}, ask whether it fits your current situation. Look at your goal, your experience level, the price, and what the product includes.`,
+      hashtags: ["OnlineBusiness", "DigitalProducts", "LearnOnline"],
+      callToAction: "Check the details and decide whether the offer fits you.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 3,
+      title: `Three questions to ask before buying ${name}`,
+      hook: `Use this quick checklist before spending money.`,
+      caption: `1. What exactly will you receive?\n2. Does it match your current goal?\n3. Is the value clear enough for the price?\n\nA good purchase decision starts with clear information.`,
+      hashtags: ["SmartBuying", "DigitalSkills", "OnlineLearning"],
+      callToAction: "Open the link to review the full product information.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 4,
+      title: `${name}: beginner checklist`,
+      hook: `Are you considering ${name} as a beginner?`,
+      caption: `Take time to understand the offer before deciding. Check whether the instructions are suitable for your current experience level and whether the product addresses the problem you want to solve.`,
+      hashtags: ["BeginnerTips", "DigitalProducts", "AffiliateMarketing"],
+      callToAction: "Send a message if you need a simple breakdown.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 5,
+      title: `${name}: avoid rushed decisions`,
+      hook: `Do not buy a digital product only because of pressure.`,
+      caption: `Review the offer carefully. Look at what is included, compare the price with the expected value, and decide whether it matches your needs. Avoid making decisions based on hype alone.`,
+      hashtags: ["SmartBuying", "DigitalProducts", "OnlineBusiness"],
+      callToAction: "Review the details carefully before deciding.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 6,
+      title: `${name}: common buyer questions`,
+      hook: `Here are a few questions worth asking before purchasing.`,
+      caption: `Is the offer suitable for beginners?\nWhat exactly is included?\nDoes it match your goal?\nIs the product information clear?\n\nThese questions can help you make a more informed decision.`,
+      hashtags: ["DigitalProducts", "BuyerTips", "AffiliateMarketing"],
+      callToAction: "Check the product information for the complete breakdown.",
+      riskNotes,
+    },
+
+    {
+      dayNumber: 7,
+      title: `${name}: final review checklist`,
+      hook: `Before deciding, run through this final checklist.`,
+      caption: `✅ Understand the offer\n✅ Check whether it fits your goal\n✅ Compare the price with the value\n✅ Read the details carefully\n✅ Ask questions when something is unclear`,
+      hashtags: ["SmartBuying", "DigitalProducts", "OnlineLearning"],
+      callToAction: "Open the link if you are ready to review the details.",
+      riskNotes,
+    },
+  ];
+}
+
+function normalizeTelegramWeeklyPlanItem(
+  raw: Partial<TelegramWeeklyPlanItem>,
+  fallback: TelegramWeeklyPlanItem
+): TelegramWeeklyPlanItem {
+  return {
+    dayNumber:
+      Number.isInteger(raw.dayNumber) &&
+      Number(raw.dayNumber) >= 1 &&
+      Number(raw.dayNumber) <= 7
+        ? Number(raw.dayNumber)
+        : fallback.dayNumber,
+
+    title: cleanString(raw.title, fallback.title),
+
+    hook: cleanString(raw.hook, fallback.hook),
+
+    caption: cleanString(raw.caption, fallback.caption),
+
+    hashtags: cleanStringArray(raw.hashtags, fallback.hashtags),
+
+    callToAction: cleanString(raw.callToAction, fallback.callToAction),
+
+    riskNotes: cleanStringArray(raw.riskNotes, fallback.riskNotes),
+  };
+}
+
+export async function generateTelegramWeeklyPlan(
+  product: AffiliateProductInput
+): Promise<AiResult<TelegramWeeklyPlanItem[]>> {
+  const fallbackPosts = createFallbackTelegramWeeklyPlan(product);
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallbackPosts,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw = await requestStructuredJson<{
+      posts?: Array<Partial<TelegramWeeklyPlanItem>>;
+    }>({
+      schema: telegramWeeklyPlanSchema,
+
+      prompt: `
+You are an ethical affiliate-marketing Telegram content strategist.
+
+Create exactly seven Telegram channel posts for the affiliate product below.
+Each post will be published on a different day.
+
+Rules:
+- Use only the supplied product information.
+- Create a meaningful seven-day content sequence.
+- Make each post different.
+- Use concise Telegram-friendly writing.
+- Use an education-first approach.
+- Do not invent product features.
+- Do not promise income or guaranteed outcomes.
+- Do not use fake testimonials.
+- Do not use false urgency.
+- Hashtags must not include the # symbol.
+- Day numbers must be 1 through 7.
+
+Suggested sequence:
+Day 1: introduction
+Day 2: audience fit
+Day 3: checklist
+Day 4: beginner-friendly explanation
+Day 5: objection handling
+Day 6: frequently asked questions
+Day 7: final review and CTA
+
+Product data:
+${JSON.stringify(createProductPromptPayload(product), null, 2)}
+      `.trim(),
+    });
+
+    const rawPosts = Array.isArray(raw.posts) ? raw.posts : [];
+
+    const mergedPosts = fallbackPosts.map((fallbackPost) => {
+      const matchingPost = rawPosts.find(
+        (post) => Number(post.dayNumber) === fallbackPost.dayNumber
+      );
+
+      return matchingPost
+        ? normalizeTelegramWeeklyPlanItem(matchingPost, fallbackPost)
+        : fallbackPost;
+    });
+
+    return {
+      data: mergedPosts,
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini Telegram weekly-plan generation failed:", error);
+
+    return {
+      data: fallbackPosts,
+      mode: "fallback",
+      warning:
+        "Gemini weekly-plan generation failed, so local fallback drafts were created.",
+    };
+  }
+}

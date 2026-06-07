@@ -66,6 +66,11 @@ const navigationItems: NavigationItem[] = [
     label: "Revenue Tracker",
     shortLabel: "RT",
   },
+  {
+  href: "/planner",
+  label: "7-Day Planner",
+  shortLabel: "7D",
+},
 ];
 
 function SidebarLinks({

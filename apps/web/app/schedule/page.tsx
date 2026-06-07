@@ -129,11 +129,16 @@ export default function SchedulePage() {
   }, []);
 
   const filteredPosts = useMemo(() => {
-    return posts
-      .filter((post) => {
-        if (statusFilter === "all") return true;
-        return post.status === statusFilter;
-      })
+  return posts
+    .filter((post) => {
+      if (statusFilter === "all") return true;
+
+      if (statusFilter === "scheduled") {
+        return Boolean(post.scheduledAt) && post.status !== "published";
+      }
+
+      return post.status === statusFilter;
+    })
       .sort((a, b) => {
         const aTime = a.scheduledAt ? new Date(a.scheduledAt).getTime() : 0;
         const bTime = b.scheduledAt ? new Date(b.scheduledAt).getTime() : 0;
@@ -145,7 +150,9 @@ export default function SchedulePage() {
   const stats = useMemo(() => {
     return {
       approved: posts.filter((post) => post.status === "approved").length,
-      scheduled: posts.filter((post) => post.status === "scheduled").length,
+      scheduled: posts.filter(
+  (post) => Boolean(post.scheduledAt) && post.status !== "published"
+).length,
       published: posts.filter((post) => post.status === "published").length,
       failed: posts.filter((post) => post.status === "failed").length,
     };
