@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { AiStatusBadge } from "@/components/AiStatusBadge";
+import { DailyActionCenter } from "@/components/DailyActionCenter";
 
 type AnalyticsResponse = {
   ok: boolean;
@@ -24,8 +25,21 @@ type AnalyticsResponse = {
   error?: string;
 };
 
+type Sale = {
+  _id: string;
+  status: "pending" | "confirmed" | "paid" | "refunded" | "cancelled";
+  soldAt?: string;
+  currency?: string;
+  commissionEarned?: number;
+  affiliateProduct?: {
+    _id: string;
+    name: string;
+  } | null;
+};
+
 type SalesResponse = {
   ok: boolean;
+  sales: Sale[];
   stats: {
     totalSales: number;
     confirmedSales: number;
@@ -60,6 +74,7 @@ type GeneratedPost = {
     _id: string;
     name: string;
   } | null;
+  plannerSource?: string;
 };
 
 type MediaAsset = {
@@ -116,6 +131,7 @@ export default function DashboardPage() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [posts, setPosts] = useState<GeneratedPost[]>([]);
   const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>([]);
+  const [sales, setSales] = useState<Sale[]>([]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -175,6 +191,7 @@ export default function DashboardPage() {
 
       setAnalytics(analyticsData);
       setSalesStats(salesData.stats);
+      setSales(salesData.sales || []);
       setLeads(leadsData.leads);
       setPosts(postsData.posts);
       setMediaAssets(mediaData.mediaAssets);
@@ -329,6 +346,12 @@ export default function DashboardPage() {
             </p>
           </div>
         </section>
+
+        <DailyActionCenter
+  posts={posts}
+  leads={leads}
+  sales={sales}
+/>
 
         <section className="grid gap-6 lg:grid-cols-[1fr_380px]">
           <div className="rounded-3xl border border-white/10 bg-white/[0.04] p-5">
