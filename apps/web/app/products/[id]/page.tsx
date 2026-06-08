@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { ProductPromotionToolkit } from "@/components/ProductPromotionToolkit";
 
 type ProductStatus = "draft" | "active" | "paused" | "archived";
 
@@ -1199,6 +1200,10 @@ async function copyPostTrackingLink(post: GeneratedPost) {
   </div>
 )}
             </div>
+            <ProductPromotionToolkit
+  product={product}
+  origin={origin}
+/>
           </aside>
         </section>
       </section>
