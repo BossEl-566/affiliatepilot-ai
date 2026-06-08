@@ -32,12 +32,13 @@ const ClickEventSchema = new Schema(
       default: "",
       index: true,
     },
+
     source: {
-  type: String,
-  default: "",
-  trim: true,
-  index: true,
-},
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
 
     referrer: {
       type: String,
@@ -62,4 +63,5 @@ const ClickEventSchema = new Schema(
 export type ClickEvent = InferSchemaType<typeof ClickEventSchema>;
 
 export const ClickEventModel =
-  mongoose.models.ClickEvent || mongoose.model("ClickEvent", ClickEventSchema);
+  mongoose.models.ClickEvent ||
+  mongoose.model("ClickEvent", ClickEventSchema);

@@ -12,6 +12,8 @@ function isPublicPath(pathname: string) {
 pathname.startsWith("/offer/") ||
     pathname === "/r" ||
     pathname.startsWith("/r/") ||
+    pathname === "/contact/whatsapp" ||
+pathname.startsWith("/contact/whatsapp/") ||
     pathname === "/api/health" ||
     pathname === "/api/public/leads" ||
     pathname === "/api/cron/publish-telegram" ||

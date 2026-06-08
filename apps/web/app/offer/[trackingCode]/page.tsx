@@ -82,6 +82,11 @@ const source = normalizeTrafficSource(
   source
 )}`;
 
+const whatsappContactLink =
+  `/contact/whatsapp/${encodeURIComponent(
+    String(product.trackingCode)
+  )}?source=${encodeURIComponent(source)}`;
+
  type LandingFaqItem = {
   question: string;
   answer: string;
@@ -124,12 +129,23 @@ const faq: LandingFaqItem[] = Array.isArray(product.landingFaq)
             </p>
           ) : null}
 
-          <a
-            href={trackingLink}
-            className="mt-7 inline-flex rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-300"
-          >
-            {product.landingCtaLabel || "Review product details"}
-          </a>
+          <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
+  <a
+    href={trackingLink}
+    className="inline-flex justify-center rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-300"
+  >
+    {product.landingCtaLabel || "Review product details"}
+  </a>
+
+  <a
+    href={whatsappContactLink}
+    target="_blank"
+    rel="noreferrer"
+    className="inline-flex justify-center rounded-2xl bg-emerald-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+  >
+    Ask on WhatsApp
+  </a>
+</div>
 
           <p className="mt-5 max-w-3xl text-xs leading-5 text-slate-400">
             {product.landingDisclosure ||
@@ -216,12 +232,23 @@ const faq: LandingFaqItem[] = Array.isArray(product.landingFaq)
             matches your goal.
           </p>
 
-          <a
-            href={trackingLink}
-            className="mt-5 inline-flex rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-300"
-          >
-            {product.landingCtaLabel || "Review product details"}
-          </a>
+          <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row sm:flex-wrap">
+  <a
+    href={trackingLink}
+    className="inline-flex justify-center rounded-2xl bg-cyan-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-cyan-300"
+  >
+    {product.landingCtaLabel || "Review product details"}
+  </a>
+
+  <a
+    href={whatsappContactLink}
+    target="_blank"
+    rel="noreferrer"
+    className="inline-flex justify-center rounded-2xl bg-emerald-400 px-6 py-4 text-sm font-black text-slate-950 transition hover:bg-emerald-300"
+  >
+    Ask on WhatsApp
+  </a>
+</div>
         </section>
       </section>
     </main>
