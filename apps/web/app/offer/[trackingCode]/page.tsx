@@ -8,7 +8,23 @@ type OfferPageProps = {
   params: Promise<{
     trackingCode: string;
   }>;
+
+  searchParams: Promise<{
+    source?: string | string[];
+  }>;
 };
+
+function normalizeTrafficSource(value?: string | string[]) {
+  const source = Array.isArray(value) ? value[0] : value;
+
+  if (!source) return "landing_page";
+
+  const normalized = source.trim().toLowerCase();
+
+  return /^[a-z0-9_-]{1,40}$/.test(normalized)
+    ? normalized
+    : "landing_page";
+}
 
 async function getProduct(trackingCode: string) {
   await connectToDatabase();
@@ -47,8 +63,14 @@ export async function generateMetadata({
 
 export default async function OfferPage({
   params,
+  searchParams,
 }: OfferPageProps) {
   const { trackingCode } = await params;
+  const resolvedSearchParams = await searchParams;
+
+const source = normalizeTrafficSource(
+  resolvedSearchParams.source
+);
 
   const product = await getProduct(trackingCode);
 
@@ -56,7 +78,9 @@ export default async function OfferPage({
     notFound();
   }
 
-  const trackingLink = `/r/${product.trackingCode}?platform=website&source=landing_page`;
+  const trackingLink = `/r/${product.trackingCode}?platform=website&source=${encodeURIComponent(
+  source
+)}`;
 
  type LandingFaqItem = {
   question: string;

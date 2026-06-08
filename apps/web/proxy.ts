@@ -7,6 +7,7 @@ import {
 function isPublicPath(pathname: string) {
   return (
     pathname === "/login" ||
+    pathname === "/bio" ||
     pathname === "/offer" ||
 pathname.startsWith("/offer/") ||
     pathname === "/r" ||

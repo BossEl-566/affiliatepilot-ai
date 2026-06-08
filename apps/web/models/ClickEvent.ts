@@ -32,6 +32,12 @@ const ClickEventSchema = new Schema(
       default: "",
       index: true,
     },
+    source: {
+  type: String,
+  default: "",
+  trim: true,
+  index: true,
+},
 
     referrer: {
       type: String,

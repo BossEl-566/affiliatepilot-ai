@@ -141,6 +141,15 @@ function CurrentModeCard() {
         <AiStatusBadge compact />
       </div>
 
+      <a
+  href="/bio"
+  target="_blank"
+  rel="noreferrer"
+  className="mt-3 block w-full rounded-xl border border-emerald-400/20 bg-emerald-400/10 px-3 py-2 text-center text-xs font-bold text-emerald-100 transition hover:bg-emerald-400/20"
+>
+  Open public bio page
+</a>
+
       <button
         type="button"
         onClick={handleLogout}
@@ -158,6 +167,7 @@ export function AppShell({ children }: AppShellProps) {
 
 if (
   pathname === "/login" ||
+  pathname === "/bio" ||
   pathname === "/offer" ||
   pathname.startsWith("/offer/")
 ) {
