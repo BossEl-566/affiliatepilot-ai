@@ -12,6 +12,7 @@ pathname.startsWith("/offer/") ||
     pathname === "/r" ||
     pathname.startsWith("/r/") ||
     pathname === "/api/health" ||
+    pathname === "/api/public/leads" ||
     pathname === "/api/cron/publish-telegram" ||
     pathname.startsWith("/api/auth/")
   );

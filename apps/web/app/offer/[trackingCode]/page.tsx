@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { connectToDatabase } from "@/lib/mongodb";
 import { AffiliateProductModel } from "@/models/AffiliateProduct";
+import { PublicLeadCaptureForm } from "@/components/PublicLeadCaptureForm";
 
 type OfferPageProps = {
   params: Promise<{
@@ -176,6 +177,10 @@ const faq: LandingFaqItem[] = Array.isArray(product.landingFaq)
             </div>
           </section>
         )}
+        <PublicLeadCaptureForm
+  trackingCode={String(product.trackingCode)}
+  productName={product.name}
+/>
 
         <section className="rounded-3xl border border-cyan-400/20 bg-cyan-400/10 p-6 text-center">
           <h2 className="text-2xl font-black">
