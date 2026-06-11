@@ -1322,3 +1322,265 @@ ${JSON.stringify(createProductPromptPayload(product), null, 2)}
     };
   }
 }
+
+export type HookLabIdea = {
+  platform: string;
+  style: string;
+  hook: string;
+  captionStarter: string;
+  callToAction: string;
+};
+
+const hookLabSchema = {
+  type: "object",
+
+  properties: {
+    ideas: {
+      type: "array",
+      minItems: 12,
+      maxItems: 12,
+
+      items: {
+        type: "object",
+
+        properties: {
+          style: {
+            type: "string",
+            enum: [
+              "curiosity",
+              "checklist",
+              "problem_solution",
+              "beginner",
+              "myth_busting",
+              "comparison",
+              "question",
+              "educational",
+            ],
+          },
+
+          hook: {
+            type: "string",
+          },
+
+          captionStarter: {
+            type: "string",
+          },
+
+          callToAction: {
+            type: "string",
+          },
+        },
+
+        required: [
+          "style",
+          "hook",
+          "captionStarter",
+          "callToAction",
+        ],
+      },
+    },
+  },
+
+  required: ["ideas"],
+};
+
+function createFallbackHookLabIdeas(
+  product: AffiliateProductInput,
+  platform: string
+): HookLabIdea[] {
+  const name = product.name || "this product";
+
+  const rawIdeas = [
+    {
+      style: "curiosity",
+      hook: `Before you spend money on ${name}, check these three things first.`,
+      captionStarter: `A good product decision starts with understanding the offer clearly.`,
+      callToAction: "Review the details before deciding.",
+    },
+
+    {
+      style: "question",
+      hook: `Is ${name} actually suitable for your goal?`,
+      captionStarter: `Not every product is right for every person. Here is what to review first.`,
+      callToAction: "Check the full breakdown.",
+    },
+
+    {
+      style: "checklist",
+      hook: `Use this quick checklist before buying ${name}.`,
+      captionStarter: `Check the audience fit, price, value, and what the offer includes.`,
+      callToAction: "Save this checklist and review the offer.",
+    },
+
+    {
+      style: "beginner",
+      hook: `Thinking about ${name} as a beginner? Start here.`,
+      captionStarter: `You do not need to rush. First understand what the offer is designed to provide.`,
+      callToAction: "Read the details carefully.",
+    },
+
+    {
+      style: "problem_solution",
+      hook: `The real question is not whether ${name} is popular. Does it solve your problem?`,
+      captionStarter: `Focus on your actual goal instead of buying because of hype.`,
+      callToAction: "Review whether the offer matches your need.",
+    },
+
+    {
+      style: "myth_busting",
+      hook: `You should not buy ${name} just because someone promises fast results.`,
+      captionStarter: `Avoid exaggerated claims. A better approach is to understand the product properly.`,
+      callToAction: "Make an informed decision.",
+    },
+
+    {
+      style: "comparison",
+      hook: `Before choosing ${name}, compare the price with the value.`,
+      captionStarter: `Ask what you will receive and whether it aligns with your current goal.`,
+      callToAction: "Open the product details.",
+    },
+
+    {
+      style: "educational",
+      hook: `Here is what to review before deciding whether ${name} is worth considering.`,
+      captionStarter: `Start with the offer details, audience fit, and the problem it is designed to address.`,
+      callToAction: "Read the full product information.",
+    },
+
+    {
+      style: "question",
+      hook: `What exactly will you receive after purchasing ${name}?`,
+      captionStarter: `This is one of the most important questions to ask before buying any digital product.`,
+      callToAction: "Review what the offer includes.",
+    },
+
+    {
+      style: "checklist",
+      hook: `Four questions to ask before buying ${name}.`,
+      captionStarter: `What is included? Who is it for? Does it match your goal? Is the value clear?`,
+      callToAction: "Check the full breakdown.",
+    },
+
+    {
+      style: "curiosity",
+      hook: `Most people skip this step before buying ${name}.`,
+      captionStarter: `Take time to confirm whether the offer actually matches what you need.`,
+      callToAction: "Review the details before deciding.",
+    },
+
+    {
+      style: "problem_solution",
+      hook: `Do not start with the product. Start with the problem you want to solve.`,
+      captionStarter: `Then ask whether ${name} is genuinely suitable for that goal.`,
+      callToAction: "Open the offer details.",
+    },
+  ];
+
+  return rawIdeas.map((idea) => ({
+    platform,
+    ...idea,
+  }));
+}
+
+function normalizeHookLabIdea(
+  raw: Partial<HookLabIdea>,
+  fallback: HookLabIdea,
+  platform: string
+): HookLabIdea {
+  return {
+    platform,
+
+    style: cleanString(raw.style, fallback.style),
+
+    hook: cleanString(raw.hook, fallback.hook),
+
+    captionStarter: cleanString(
+      raw.captionStarter,
+      fallback.captionStarter
+    ),
+
+    callToAction: cleanString(
+      raw.callToAction,
+      fallback.callToAction
+    ),
+  };
+}
+
+export async function generateHookLabIdeas(
+  product: AffiliateProductInput,
+  platform: string
+): Promise<AiResult<HookLabIdea[]>> {
+  const fallbackIdeas = createFallbackHookLabIdeas(
+    product,
+    platform
+  );
+
+  if (!hasGeminiConfiguration()) {
+    return {
+      data: fallbackIdeas,
+      mode: "fallback",
+    };
+  }
+
+  try {
+    const raw = await requestStructuredJson<{
+      ideas?: Array<Partial<HookLabIdea>>;
+    }>({
+      schema: hookLabSchema,
+
+      prompt: `
+You are an ethical affiliate-marketing content strategist.
+
+Create exactly 12 strong marketing hooks for ${platform}.
+
+Use only the supplied product information.
+
+Rules:
+- Make each hook meaningfully different.
+- Keep hooks concise and attention-grabbing.
+- Use curiosity, questions, checklists, educational framing, comparison,
+  beginner-friendly framing, and problem-solution angles.
+- Do not invent product features.
+- Do not promise income or guaranteed results.
+- Do not use false scarcity.
+- Do not use fake testimonials.
+- Do not use deceptive clickbait.
+- Each caption starter should naturally follow the hook.
+- Each CTA should be factual and low pressure.
+
+Product data:
+${JSON.stringify(createProductPromptPayload(product), null, 2)}
+      `.trim(),
+    });
+
+    const rawIdeas = Array.isArray(raw.ideas)
+      ? raw.ideas
+      : [];
+
+    const ideas = fallbackIdeas.map((fallbackIdea, index) => {
+      const generatedIdea = rawIdeas[index];
+
+      return generatedIdea
+        ? normalizeHookLabIdea(
+            generatedIdea,
+            fallbackIdea,
+            platform
+          )
+        : fallbackIdea;
+    });
+
+    return {
+      data: ideas,
+      mode: "gemini",
+    };
+  } catch (error) {
+    console.error("Gemini Hook Lab generation failed:", error);
+
+    return {
+      data: fallbackIdeas,
+      mode: "fallback",
+      warning:
+        "Gemini Hook Lab generation failed, so local fallback hooks were created.",
+    };
+  }
+}

@@ -199,6 +199,50 @@ landingGenerationMode: {
       min: 0,
       max: 100,
     },
+    hookLabIdeas: {
+  type: [
+    {
+      platform: {
+        type: String,
+        default: "instagram",
+      },
+
+      style: {
+        type: String,
+        default: "educational",
+      },
+
+      hook: {
+        type: String,
+        required: true,
+        trim: true,
+      },
+
+      captionStarter: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      callToAction: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+    },
+  ],
+  default: [],
+},
+
+hookLabLastGeneratedAt: {
+  type: Date,
+},
+
+hookLabGenerationMode: {
+  type: String,
+  enum: ["gemini", "fallback", ""],
+  default: "",
+},
 
     status: {
       type: String,

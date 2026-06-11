@@ -4,6 +4,7 @@ import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { ProductPromotionToolkit } from "@/components/ProductPromotionToolkit";
+import { ProductHookLab } from "@/components/ProductHookLab";
 
 type ProductStatus = "draft" | "active" | "paused" | "archived";
 
@@ -48,6 +49,17 @@ landingCtaLabel?: string;
 landingDisclosure?: string;
 landingLastGeneratedAt?: string;
 landingGenerationMode?: "gemini" | "fallback" | "";
+hookLabIdeas?: Array<{
+  _id?: string;
+  platform: string;
+  style: string;
+  hook: string;
+  captionStarter: string;
+  callToAction: string;
+}>;
+
+hookLabGenerationMode?: "gemini" | "fallback" | "";
+hookLabLastGeneratedAt?: string;
 };
 
 type ProductFormState = {
@@ -1205,8 +1217,16 @@ async function copyPostTrackingLink(post: GeneratedPost) {
   origin={origin}
 />
           </aside>
+          
         </section>
+        <ProductHookLab
+  productId={product._id}
+  productName={product.name}
+  initialIdeas={product.hookLabIdeas || []}
+  initialMode={product.hookLabGenerationMode || ""}
+/>
       </section>
+
     </main>
   );
 }
